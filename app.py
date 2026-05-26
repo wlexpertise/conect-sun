@@ -16,73 +16,71 @@ def carregar_dados():
     nome_do_arquivo = 'dados_conectsol.xlsx' 
     df = pd.read_excel(nome_do_arquivo)
     
-    # Remove espaços extras nas pontas de todas as colunas
+    # Limpa espaços em branco dos nomes das colunas
     df.columns = df.columns.str.strip()
-    
-    # Criamos uma lista com os nomes das colunas em letras minúsculas para facilitar a busca flexível
     colunas_minusculas = [c.lower() for c in df.columns]
     
-    # 🔍 PROCURA INTELIGENTE E FLEXÍVEL POR PALAVRA-CHAVE
+    # 🔍 LOCALIZAÇÃO DINÂMICA DAS COLUNAS
     try:
         idx_data = [i for i, c in enumerate(colunas_minusculas) if 'pagamento' in c or 'data' in c][0]
         col_data_e = df.columns[idx_data]
     except IndexError:
-        st.error("Não encontramos a coluna de Data na sua planilha. Verifique se existe uma coluna de data.")
+        st.error("Coluna de Data de Pagamento não encontrada. Verifique os cabeçalhos.")
         st.stop()
         
     try:
         idx_valor = [i for i, c in enumerate(colunas_minusculas) if 'valor' in c][0]
         col_valor_m = df.columns[idx_valor]
     except IndexError:
-        st.error("Não encontramos a coluna de Valor na sua planilha.")
+        st.error("Coluna de Valor não encontrada.")
         st.stop()
         
-    try:
-        idx_grupos = [i for i, c in enumerate(colunas_minusculas) if 'grupo' in c or c == 'n'][0]
-        col_grupos_n = df.columns[idx_grupos]
-    except IndexError:
-        # Se não achar por 'grupo' ou 'n', assume a coluna de índice 13 (Coluna N, considerando índice 0)
-        col_grupos_n = df.columns[13] if len(df.columns) > 13 else df.columns[0]
+    idx_grupos = [i for i, c in enumerate(colunas_minusculas) if 'grupo' in c or c == 'n']
+    col_grupos_n = df.columns[idx_grupos[0]] if idx_grupos else (df.columns[13] if len(df.columns) > 13 else df.columns[0])
         
     try:
         idx_tipo = [i for i, c in enumerate(colunas_minusculas) if 'tipo' in c or c == 'p'][0]
         col_tipo_p = df.columns[idx_tipo]
     except IndexError:
-        # Se não achar por 'tipo' ou 'p', assume a coluna de índice 15 (Coluna P, considerando índice 0)
-        col_tipo_p = df.columns[15] if len(df.columns) > 15 else df.columns[0]
+        st.error("Coluna de Tipo não encontrada.")
+        st.stop()
         
     try:
         idx_situacao = [i for i, c in enumerate(colunas_minusculas) if 'situa' in c or 'status' in c][0]
         col_situacao = df.columns[idx_situacao]
     except IndexError:
-        st.error("Não encontramos a coluna de Situação na sua planilha.")
+        st.error("Coluna de Situação não encontrada.")
         st.stop()
         
-    try:
-        idx_vendedor = [i for i, c in enumerate(colunas_minusculas) if 'vendedor' in c or 'equipe' in c or 'consultor' in c][0]
-        col_vendedor = df.columns[idx_vendedor]
-    except IndexError:
-        col_vendedor = df.columns[0] # Fallback caso não encontre
+    idx_vendedor = [i for i, c in enumerate(colunas_minusculas) if 'vendedor' in c or 'equipe' in c or 'consultor' in c]
+    col_vendedor = df.columns[idx_vendedor[0]] if idx_vendedor else df.columns[0]
 
-    # LIMPEZA: Remove linhas onde os campos fundamentais estão vazios
-    df = df.dropna(subset=[col_data_e, col_tipo_p])
+    # 🧼 HIGIENIZAÇÃO PROFUNDA DOS DADOS
     
-    # Converte a coluna para formato de data de forma segura, ignorando erros de texto
+    # 1. Trata a coluna de Tipo (Remove espaços e põe em minúsculo)
+    df[col_tipo_p] = df[col_tipo_p].astype(str).str.strip().str.lower()
+    
+    # 2. Força a conversão do Valor tirando símbolos monetários comuns do Excel se existirem
+    if df[col_valor_m].dtype == object:
+        df[col_valor_m] = df[col_valor_m].astype(str).str.replace('R$', '', regex=False)
+        df[col_valor_m] = df[col_valor_m].str.replace('.', '', regex=False)
+        df[col_valor_m] = df[col_valor_m].str.replace(',', '.', regex=False)
+        df[col_valor_m] = df[col_valor_m].str.strip()
+    df[col_valor_m] = pd.to_numeric(df[col_valor_m], errors='coerce').fillna(0)
+    
+    # 3. Converte e limpa as Datas
     df[col_data_e] = pd.to_datetime(df[col_data_e], errors='coerce')
-    df = df.dropna(subset=[col_data_e]) 
-    
-    # Filtra anos realistas para eliminar o ano padrão 1970
+    df = df.dropna(subset=[col_data_e])
     df = df[df[col_data_e].dt.year >= 2020]
     
-    # REGRA GERAL: Considerar apenas registros com a situação 'Conciliado'
-    df = df[df[col_situacao].astype(str).str.lower().str.strip().str.contains('conciliado', na=False)]
+    # 4. Trata a coluna de Situação para evitar divergência de escrita
+    df['sit_limpa'] = df[col_situacao].astype(str).str.strip().str.lower()
+    df = df[df['sit_limpa'].str.contains('conciliado', na=False)]
     
-    # Criação das colunas de período no padrão mmm/yyyy para o menu suspenso
+    # Geração dos períodos
     df['ano_mes_num'] = df[col_data_e].dt.strftime('%Y%m')
-    
     meses_pt = {1: 'jan', 2: 'fev', 3: 'mar', 4: 'abr', 5: 'mai', 6: 'jun',
                 7: 'jul', 8: 'ago', 9: 'set', 10: 'out', 11: 'nov', 12: 'dez'}
-    
     df['mes_nome_pt'] = df[col_data_e].dt.month.map(meses_pt)
     df['ano_mes_texto'] = df['mes_nome_pt'] + '/' + df[col_data_e].dt.year.astype(str)
     
@@ -91,14 +89,13 @@ def carregar_dados():
 try:
     df_base, col_data_e, col_valor_m, col_grupos_n, col_tipo_p, col_vendedor = carregar_dados()
 except Exception as e:
-    st.error(f"Erro inesperado no processamento dos dados: {e}")
+    st.error(f"Erro inesperado ao tratar os dados: {e}")
     st.stop()
 
-# 3. BARRA LATERAL (MENU SUSPENSO)
+# 3. BARRA LATERAL
 st.sidebar.image("Logo horizontal-fundo.png", use_container_width=True)
 st.sidebar.markdown("### FILTROS DE ANÁLISE")
 
-# Ordenação cronológica dos meses válidos
 df_ordenado = df_base.sort_values('ano_mes_num')
 meses_disponiveis = df_ordenado['ano_mes_texto'].unique().tolist()
 
@@ -109,40 +106,33 @@ if meses_disponiveis:
     )
     df_filtrado = df_base[df_base['ano_mes_texto'] == mes_selecionado].copy()
 else:
-    st.warning("Nenhum dado válido com a situação 'Conciliado' foi encontrado na planilha.")
+    st.warning("Atenção: Nenhuma linha foi encontrada com o status 'Conciliado'. Verifique a coluna de situação no Excel.")
     st.stop()
-
 
 # 4. CABEÇALHO DO DASHBOARD
 st.title("Painel Financeiro & Business Intelligence")
 st.markdown(f"#### Análise de Resultado de Caixa: **Conectsol Engenharia** | Período: `{mes_selecionado.upper()}`")
 st.markdown("---")
 
+# 5. PROCESSAMENTO DE VALORES (MÉTODO FLEXÍVEL DE BUSCA)
+# Entrada: se conter a palavra 'venda'
+df_entradas = df_filtrado[df_filtrado[col_tipo_p].str.contains('venda', na=False)]
+entradas_total = df_entradas[col_valor_m].sum()
 
-# 5. PROCESSAMENTO DE ENTRADAS E SAÍDAS
-df_filtrado['tipo_busca'] = df_filtrado[col_tipo_p].astype(str).str.lower().str.strip()
+# Saída: se conter 'custo' ou 'despes'
+df_saidas = df_filtrado[df_filtrado[col_tipo_p].str.contains('custo|despes', na=False)]
+saidas_total = df_saidas[col_valor_m].sum()
 
-# REGRA: Entrada = apenas o que for exatamente 'venda'
-df_entradas = df_filtrado[df_filtrado['tipo_busca'] == 'venda']
-entradas_total = pd.to_numeric(df_entradas[col_valor_m], errors='coerce').sum()
-
-# REGRA: Saída = o que contiver 'custo' ou 'despes'
-df_saidas = df_filtrado[df_filtrado['tipo_busca'].str.contains('custo|despes|despesa', na=False)]
-saidas_total = pd.to_numeric(df_saidas[col_valor_m], errors='coerce').sum()
-
-# Resultado Líquido e Margem
 resultado_liquido = entradas_total - saidas_total
 margem_resultado = (resultado_liquido / entradas_total * 100) if entradas_total > 0 else 0
 
-
-# 6. EXIBIÇÃO DOS CARDS (Entradas, Saídas, Resultado)
+# 6. EXIBIÇÃO DOS CARDS
 kpi1, kpi2, kpi3 = st.columns(3)
-kpi1.metric(label="📈 Total de Entradas (Vendas)", value=f"R$ {entradas_total:,.2f}")
-kpi2.metric(label="📉 Total de Saídas (Custos/Despesas)", value=f"R$ {saidas_total:,.2f}")
+kpi1.metric(label="📈 Total de Entradas", value=f"R$ {entradas_total:,.2f}")
+kpi2.metric(label="📉 Total de Saídas", value=f"R$ {saidas_total:,.2f}")
 kpi3.metric(label="📊 Resultado Líquido", value=f"R$ {resultado_liquido:,.2f}", delta=f"{margem_resultado:.1f}% Margem")
 
 st.markdown("---")
-
 
 # 7. GRÁFICOS DO DASHBOARD
 graf1, graf2 = st.columns(2)
@@ -150,7 +140,6 @@ graf1, graf2 = st.columns(2)
 with graf1:
     st.markdown("### 🍕 Saídas por Grupo")
     df_saidas_grupo = df_saidas.groupby(col_grupos_n)[col_valor_m].sum().reset_index()
-    df_saidas_grupo[col_valor_m] = pd.to_numeric(df_saidas_grupo[col_valor_m], errors='coerce')
     df_saidas_grupo = df_saidas_grupo[df_saidas_grupo[col_valor_m] > 0]
     
     if not df_saidas_grupo.empty:
@@ -164,12 +153,11 @@ with graf1:
         fig_desp.update_layout(legend=dict(orientation="h", y=-0.1))
         st.plotly_chart(fig_desp, use_container_width=True)
     else:
-        st.info("Nenhuma saída registrada para este mês.")
+        st.info("Nenhuma saída identificada para este mês.")
 
 with graf2:
     st.markdown("### 📊 Desempenho de Entradas por Vendedor")
     df_vendas = df_entradas.groupby(col_vendedor)[col_valor_m].sum().reset_index()
-    df_vendas[col_valor_m] = pd.to_numeric(df_vendas[col_valor_m], errors='coerce')
     df_vendas = df_vendas[df_vendas[col_valor_m] > 0]
     
     if not df_vendas.empty:
@@ -183,4 +171,4 @@ with graf2:
         )
         st.plotly_chart(fig_vendas, use_container_width=True)
     else:
-        st.info("Nenhuma entrada (venda) registrada para este mês.")
+        st.info("Nenhuma entrada registrada para este mês.")

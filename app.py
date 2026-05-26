@@ -75,11 +75,14 @@ def carregar_dados():
     col_data_pag = df.columns[4]       # Data de pagamento
     col_contato = df.columns[7]        # Contato (H) - Sócios/Clientes
     col_categoria = df.columns[10]     # Categoria
-    col_situacao = df.columns[11]      # Situação
+    col_situacao = df.columns[11]      # Situação (Coluna L/M conforme mapeamento)
     col_valor = df.columns[12]         # Valor
     col_grupo = df.columns[13]         # Grupo
     
-    df = df[df[col_situacao].astype(str).str.strip().str.lower() == 'conciliado'].copy()
+    # 🔄 ALTERAÇÃO DA REGRA DE NEGÓCIO: Agora considera tanto 'conciliado' quanto 'sem conciliação'
+    df['situacao_limpa'] = df[col_situacao].astype(str).str.strip().str.lower()
+    df = df[df['situacao_limpa'].isin(['conciliado', 'sem conciliação'])].copy()
+    
     if df[col_valor].dtype == object:
         df[col_valor] = df[col_valor].astype(str).str.replace('R$', '', regex=False).str.replace('.', '', regex=False).str.replace(',', '.', regex=False).str.strip()
     df[col_valor] = pd.to_numeric(df[col_valor], errors='coerce').fillna(0)

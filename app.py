@@ -22,10 +22,14 @@ st.markdown("""
         h1, h2, h3, p, label, .stMarkdown {
             color: #1f2937 !important;
         }
-        /* Ajuste fino na barra lateral branca */
+        /* 🔵 Barra lateral com a cor #13A3B5 bem clarinha (10% de opacidade) e borda sutil */
         [data-testid="stSidebar"] {
-            background-color: #ffffff !important;
-            border-right: 1px solid #e5e7eb !important;
+            background-color: rgba(19, 163, 181, 0.10) !important;
+            border-right: 1px solid rgba(19, 163, 181, 0.20) !important;
+        }
+        /* Ajuste na linha divisória da barra lateral para combinar com o tom */
+        [data-testid="stSidebar"] hr {
+            border-color: rgba(19, 163, 181, 0.30) !important;
         }
         /* Customização sutil dos cards nativos de métricas */
         div[data-testid="stMetricValue"] > div {
@@ -299,11 +303,11 @@ elif pagina == "🏗️ Custos na Prestação de Serviço":
     df_insumos_mes = df_mes[df_mes[col_grupo].str.contains('CUSTOS NA PRESTAÇÃO DE SERVIÇO', na=False, case=False)].copy()
     total_insumos_mes = df_insumos_mes[col_valor].sum() if not df_insumos_mes.empty else 0
     
-    # Cálculo Acumulado (YTD) solicitado
+    # Cálculo Acumulado (YTD)
     df_insumos_ytd = df_ytd[df_ytd[col_grupo].str.contains('CUSTOS NA PRESTAÇÃO DE SERVIÇO', na=False, case=False)].copy()
     total_insumos_ytd = df_insumos_ytd[col_valor].sum() if not df_insumos_ytd.empty else 0
     
-    # Exibindo os dois cards lado a lado de forma clara
+    # Exibindo os dois cards lado a lado
     cc1, cc2 = st.columns(2)
     cc1.metric(f"🏗️ Custos no Mês ({mes_selecionado})", formatar_brl(total_insumos_mes))
     cc2.metric("🚀 Custos Acumulados no Ano (YTD)", formatar_brl(total_insumos_ytd))

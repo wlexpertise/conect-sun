@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 🎨 DESIGN MINIMALISTA CORPORATIVO (Fundo cinza claro e destaque na logo do cliente)
+# 🎨 DESIGN MINIMALISTA CORPORATIVO (Fundo cinza claro e destaque real na logo)
 st.markdown("""
     <style>
         /* Fundo limpo e contínuo para o App */
@@ -32,15 +32,15 @@ st.markdown("""
             color: #0B5A60 !important;
             font-weight: 700;
         }
-        /* Container especial para destacar a logo do cliente sobre o fundo acinzentado */
-        .logo-container {
-            background-color: #ffffff;
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            display: flex;
-            justify-content: center;
-            align-items: center;
+        /* Card Branco Sólido e Destacado para a Logo do Cliente */
+        .logo-box {
+            background-color: #ffffff !important;
+            padding: 15px !important;
+            border-radius: 12px !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+            text-align: center !important;
+            display: block !important;
+            margin-bottom: 10px !important;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -111,7 +111,7 @@ reg_ref = df_base[df_base['ano_mes_texto'] == mes_selecionado].iloc[0]
 df_ytd = df_base[(df_base['ano'] == reg_ref['ano']) & (df_base['mes'] <= reg_ref['mes'])].copy()
 df_mes = df_base[df_base['ano_mes_texto'] == mes_selecionado].copy()
 
-# Cabeçalho integrado com container especial em branco para destacar a logo do cliente
+# Cabeçalho integrado com Grid de segurança para a Logo
 header_col1, header_col2 = st.columns([4, 1])
 
 # --- PÁGINA 1: VISÃO GERAL (YTD) ---
@@ -120,7 +120,7 @@ if pagina == "🚀 Visão Geral (YTD)":
         st.title("Performance Financeira ConectSol")
         st.subheader(f"Acumulado Estratégico (YTD) até {mes_selecionado.upper()}")
     with header_col2:
-        st.markdown('<div class="logo-container">', unsafe_allow_html=True)
+        st.markdown('<div class="logo-box">', unsafe_allow_html=True)
         st.image("conectlogo.png", use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
@@ -173,13 +173,12 @@ elif pagina == "📈 Análise de Entradas":
         st.title("Análise de Entradas por Cliente")
         st.subheader(f"Competência de Referência: {mes_selecionado.upper()}")
     with header_col2:
-        st.markdown('<div class="logo-container">', unsafe_allow_html=True)
+        st.markdown('<div class="logo-box">', unsafe_allow_html=True)
         st.image("conectlogo.png", use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
     st.markdown("---")
     
-    # Adicionando os cards de Visão Mensal e YTD de Entradas
     ent_mes_total = df_mes[df_mes['fluxo_limpo'] == 'entrada'][col_valor].sum()
     ent_ytd_total = df_ytd[df_ytd['fluxo_limpo'] == 'entrada'][col_valor].sum()
     
@@ -210,13 +209,12 @@ elif pagina == "📉 Detalhe de Saídas":
         st.title("Distribuição de Saídas Estratégicas")
         st.subheader(f"Competência de Referência: {mes_selecionado.upper()}")
     with header_col2:
-        st.markdown('<div class="logo-container">', unsafe_allow_html=True)
+        st.markdown('<div class="logo-box">', unsafe_allow_html=True)
         st.image("conectlogo.png", use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
     st.markdown("---")
     
-    # Adicionando os cards de Visão Mensal e YTD de Saídas
     sai_mes_total = df_mes[df_mes['fluxo_limpo'] == 'saída'][col_valor].sum()
     sai_ytd_total = df_ytd[df_ytd['fluxo_limpo'] == 'saída'][col_valor].sum()
     
@@ -226,16 +224,15 @@ elif pagina == "📉 Detalhe de Saídas":
     
     st.markdown("---")
     
-    # Gráfico agrupado por Grupo (Coluna N) ordenado do maior para o menor
     df_saidas_m = df_mes[df_mes['fluxo_limpo'] == 'saída']
     df_grp = df_saidas_m.groupby(col_grupo)[col_valor].sum().reset_index()
-    df_grp = df_grp.sort_values(col_valor, ascending=True) # Ascending True para o bar h posicionar o maior no topo
+    df_grp = df_grp.sort_values(col_valor, ascending=True)
     
     if not df_grp.empty:
         textos_grp = [formatar_brl(val) for val in df_grp[col_valor]]
         fig_grp = px.bar(
             df_grp, x=col_valor, y=col_grupo, orientation='h',
-            template="plotly_white", labels={col_grupo: 'Grupo de Custo (Coluna N)', col_valor: 'Total Gasto'}
+            template="plotly_white", labels={col_grupo: 'Grupo de Custo', col_valor: 'Total Gasto'}
         )
         fig_grp.update_traces(marker_color='#13A3B5', text=textos_grp, textposition='auto')
         fig_grp.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis={'categoryorder':'total ascending'})
@@ -249,7 +246,7 @@ elif pagina == "👥 Gestão de Sócios":
         st.title("Controle de Retiradas de Sócios")
         st.subheader(f"Auditoria de retiradas e despesas compartilhadas em {mes_selecionado.upper()}")
     with header_col2:
-        st.markdown('<div class="logo-container">', unsafe_allow_html=True)
+        st.markdown('<div class="logo-box">', unsafe_allow_html=True)
         st.image("conectlogo.png", use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
@@ -292,24 +289,29 @@ elif pagina == "🏗️ Custos na Prestação de Serviço":
         st.title("Análise de Custos na Prestação de Serviço")
         st.subheader(f"Acompanhamento analítico dos custos diretos em {mes_selecionado.upper()}")
     with header_col2:
-        st.markdown('<div class="logo-container">', unsafe_allow_html=True)
+        st.markdown('<div class="logo-box">', unsafe_allow_html=True)
         st.image("conectlogo.png", use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
     st.markdown("---")
     
-    df_insumos = df_mes[df_mes[col_grupo].str.contains('CUSTOS NA PRESTAÇÃO DE SERVIÇO', na=False, case=False)].copy()
+    # Cálculo Mensal
+    df_insumos_mes = df_mes[df_mes[col_grupo].str.contains('CUSTOS NA PRESTAÇÃO DE SERVIÇO', na=False, case=False)].copy()
+    total_insumos_mes = df_insumos_mes[col_valor].sum() if not df_insumos_mes.empty else 0
     
-    if not df_insumos.empty:
-        total_insumos = df_insumos[col_valor].sum()
-        
-        # Card com o total do mês selecionado solicitado
-        cc1, cc2 = st.columns(2)
-        cc1.metric(f"🏗️ Custos no Mês ({mes_selecionado})", formatar_brl(total_insumos))
-        
-        st.markdown("---")
-        
-        df_ins_cat = df_insumos.groupby(col_categoria)[col_valor].sum().reset_index().sort_values(col_valor, ascending=True)
+    # Cálculo Acumulado (YTD) solicitado
+    df_insumos_ytd = df_ytd[df_ytd[col_grupo].str.contains('CUSTOS NA PRESTAÇÃO DE SERVIÇO', na=False, case=False)].copy()
+    total_insumos_ytd = df_insumos_ytd[col_valor].sum() if not df_insumos_ytd.empty else 0
+    
+    # Exibindo os dois cards lado a lado de forma clara
+    cc1, cc2 = st.columns(2)
+    cc1.metric(f"🏗️ Custos no Mês ({mes_selecionado})", formatar_brl(total_insumos_mes))
+    cc2.metric("🚀 Custos Acumulados no Ano (YTD)", formatar_brl(total_insumos_ytd))
+    
+    st.markdown("---")
+    
+    if not df_insumos_mes.empty:
+        df_ins_cat = df_insumos_mes.groupby(col_categoria)[col_valor].sum().reset_index().sort_values(col_valor, ascending=True)
         textos_ins = [formatar_brl(val) for val in df_ins_cat[col_valor]]
         
         fig_ins = px.bar(
@@ -320,7 +322,7 @@ elif pagina == "🏗️ Custos na Prestação de Serviço":
         fig_ins.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig_ins, use_container_width=True)
         
-        df_tabela_ins = df_insumos[[col_data_pag, col_contato, 'Descrição', col_valor]].copy()
+        df_tabela_ins = df_insumos_mes[[col_data_pag, col_contato, 'Descrição', col_valor]].copy()
         df_tabela_ins[col_data_pag] = df_tabela_ins[col_data_pag].dt.strftime('%d/%m/%Y')
         df_tabela_ins[col_valor] = df_tabela_ins[col_valor].apply(formatar_brl)
         st.dataframe(df_tabela_ins, use_container_width=True)

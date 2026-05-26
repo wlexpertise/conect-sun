@@ -63,10 +63,10 @@ def carregar_dados():
 
 df_base, col_data_pag, col_contato, col_categoria, col_valor, col_grupo = carregar_dados()
 
-# 3. NAVEGAÇÃO LATERAL (MENU EXECUTIVO)
-st.sidebar.image("Logo horizontal-fundo.png", use_container_width=True)
+# 3. NAVEGAÇÃO LATERAL (MENU EXECUTIVO COM NOVA LOGO)
+st.sidebar.image("Logohorizontal.png", use_container_width=True)
 st.sidebar.markdown("---")
-pagina = st.sidebar.radio("Navegação Estratégica:", ["🚀 Visão Geral (YTD)", "🔍 Detalhe Operacional", "👥 Gestão de Sócios", "🏗️ Insumos Operacionais"])
+pagina = st.sidebar.radio("Navegação Estratégica:", ["🚀 Visão Geral (YTD)", "🔍 Detalhe Operacional", "👥 Gestão de Sócios", "🏗️ Custos na Prestação de Serviço"])
 
 # Filtro de Mês unificado na Barra Lateral
 df_ordenado = df_base.sort_values('ano_mes_num')
@@ -79,10 +79,17 @@ df_ytd = df_base[(df_base['ano'] == reg_ref['ano']) & (df_base['mes'] <= reg_ref
 df_mes = df_base[df_base['ano_mes_texto'] == mes_selecionado].copy()
 
 
+# 💡 INCLUSÃO DA LOGO DO CLIENTE NO CANTO SUPERIOR DIREITO DE TODAS AS PÁGINAS
+header_col1, header_col2 = st.columns([5, 1])
+with header_col2:
+    st.image("conectlogo.png", use_container_width=True)
+
+
 # --- PÁGINA 1: VISÃO GERAL (YTD) ---
 if pagina == "🚀 Visão Geral (YTD)":
-    st.title("Performance Financeira WL Expertise")
-    st.subheader(f"Acumulado Estratégico (YTD) até {mes_selecionado.upper()}")
+    with header_col1:
+        st.title("Performance Financeira WL Expertise")
+        st.subheader(f"Acumulado Estratégico (YTD) até {mes_selecionado.upper()}")
     
     ent_ytd = df_ytd[df_ytd['fluxo_limpo'] == 'entrada'][col_valor].sum()
     sai_ytd = df_ytd[df_ytd['fluxo_limpo'] == 'saída'][col_valor].sum()
@@ -108,7 +115,6 @@ if pagina == "🚀 Visão Geral (YTD)":
     df_hist['Resultado'] = df_hist['entrada'] - df_hist['saída']
     df_hist = df_hist.sort_values('ano_mes_num')
     
-    # Texto de rótulo formatado dinamicamente para o gráfico mensal
     textos_grafico = [formatar_brl(val) for val in df_hist['Resultado']]
     
     fig_evolucao = go.Figure()
@@ -130,8 +136,9 @@ if pagina == "🚀 Visão Geral (YTD)":
 
 # --- PÁGINA 2: DETALHE OPERACIONAL ---
 elif pagina == "🔍 Detalhe Operacional":
-    st.title("Detalhamento Operacional Executivo")
-    st.markdown(f"Análise aprofundada dos fluxos de caixa para a competência de **{mes_selecionado.upper()}**")
+    with header_col1:
+        st.title("Detalhamento Operacional Executivo")
+        st.markdown(f"Análise aprofundada dos fluxos de caixa para a competência de **{mes_selecionado.upper()}**")
     st.markdown("---")
     
     col_esq, col_dir = st.columns(2)
@@ -180,35 +187,28 @@ elif pagina == "🔍 Detalhe Operacional":
 
 # --- PÁGINA 3: GESTÃO DE SÓCIOS ---
 elif pagina == "👥 Gestão de Sócios":
-    st.title("Controle de Retiradas de Sócios")
-    st.markdown(f"Auditoria de retiradas, pró-labores e despesas compartilhadas em **{mes_selecionado.upper()}**")
+    with header_col1:
+        st.title("Controle de Retiradas de Sócios")
+        st.markdown(f"Auditoria de retiradas, pró-labores e despesas compartilhadas em **{mes_selecionado.upper()}**")
     st.markdown("---")
     
-    # Filtra despesas cujo grupo contenha o termo "SÓCIO"
     df_socios_mes = df_mes[df_mes[col_grupo].str.contains('SÓCIO', na=False, case=False)].copy()
     
     if not df_socios_mes.empty:
-        # Gráfico Consolidado Vertical por Sócio (Padrão de referência solicitado)
         st.markdown("### 📊 Visão Consolidada por Beneficiário / Sócio")
         df_soc_agrupado = df_socios_mes.groupby(col_contato)[col_valor].sum().reset_index().sort_values(by=col_valor, ascending=False)
         
         textos_soc_bars = [formatar_brl(val) for val in df_soc_agrupado[col_valor]]
         
         fig_soc_vert = px.bar(
-            df_soc_agrupado,
-            x=col_contato,
-            y=col_valor,
-            template="plotly_dark",
+            df_soc_agrupado, x=col_contato, y=col_valor, template="plotly_dark",
             labels={col_contato: 'Sócio / Beneficiário', col_valor: 'Total Retirado'}
         )
-        # Cor verde petróleo corporativo correspondente à referência visual
         fig_soc_vert.update_traces(marker_color='#065f46', text=textos_soc_bars, textposition='auto')
-        fig_soc_vert.update_layout(margin=dict(t=20, b=20))
         st.plotly_chart(fig_soc_vert, use_container_width=True)
         
         st.markdown("---")
         
-        # Filtros individuais adicionais
         list_socios = ["Todos"] + df_socios_mes[col_contato].unique().tolist()
         socio_sel = st.selectbox("Filtrar Tabela e Linha do Tempo por Sócio:", list_socios)
         
@@ -219,7 +219,6 @@ elif pagina == "👥 Gestão de Sócios":
         st.metric(f"Total Isolado — {socio_sel}", formatar_brl(total_socio))
         
         st.markdown("### 📋 Extrato de Lançamentos")
-        # Criando cópia formatada para exibição em tabela limpa
         df_tabela_socio = df_socios_mes[[col_data_pag, col_contato, 'Descrição', col_valor]].copy()
         df_tabela_socio[col_data_pag] = df_tabela_socio[col_data_pag].dt.strftime('%d/%m/%Y')
         df_tabela_socio[col_valor] = df_tabela_socio[col_valor].apply(formatar_brl)
@@ -228,19 +227,21 @@ elif pagina == "👥 Gestão de Sócios":
         st.info("Não foram encontradas transações vinculadas ao grupo de Sócios neste mês.")
 
 
-# --- PÁGINA 4: INSUMOS OPERACIONAIS ---
-elif pagina == "🏗️ Insumos Operacionais":
-    st.title("Análise Estratégica de Insumos Operacionais")
-    st.markdown(f"Acompanhamento analítico dos custos técnicos diretos em **{mes_selecionado.upper()}**")
+# --- PÁGINA 4: CUSTOS NA PRESTAÇÃO DE SERVIÇO (FILTRO ATUALIZADO) ---
+elif pagina == "🏗️ Custos na Prestação de Serviço":
+    with header_col1:
+        st.title("Análise de Custos na Prestação de Serviço")
+        st.markdown(f"Acompanhamento analítico dos custos diretos em **{mes_selecionado.upper()}**")
     st.markdown("---")
     
-    df_insumos = df_mes[df_mes[col_grupo].str.contains('INSUMOS OPERACIONAIS', na=False, case=False)].copy()
+    # 🔍 Busca atualizada para refletir o nome exato do grupo
+    df_insumos = df_mes[df_mes[col_grupo].str.contains('CUSTOS NA PRESTAÇÃO DE SERVIÇO', na=False, case=False)].copy()
     
     if not df_insumos.empty:
         total_insumos = df_insumos[col_valor].sum()
-        st.metric("Despesa Consolidada com Insumos", formatar_brl(total_insumos))
+        st.metric("Gasto Total Consolidado", formatar_brl(total_insumos))
         
-        st.markdown("### 📊 Detalhamento de Custos por Categoria Técnica")
+        st.markdown("### 📊 Detalhamento por Categoria Operacional")
         df_ins_cat = df_insumos.groupby(col_categoria)[col_valor].sum().reset_index().sort_values(col_valor, ascending=True)
         
         textos_ins = [formatar_brl(val) for val in df_ins_cat[col_valor]]
@@ -257,4 +258,4 @@ elif pagina == "🏗️ Insumos Operacionais":
         df_tabela_ins[col_valor] = df_tabela_ins[col_valor].apply(formatar_brl)
         st.dataframe(df_tabela_ins, use_container_width=True)
     else:
-        st.info("Nenhuma despesa de 'Insumos Operacionais' registrada para esta competência.")
+        st.info("Nenhuma despesa de 'Custos na Prestação de Serviço' registrada para esta competência.")

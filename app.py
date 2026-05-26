@@ -16,28 +16,65 @@ def carregar_dados():
     nome_do_arquivo = 'dados_conectsol.xlsx' 
     df = pd.read_excel(nome_do_arquivo)
     
-    # Remove espaços extras invisíveis nas pontas dos nomes das colunas
+    # Remove espaços extras nas pontas de todas as colunas
     df.columns = df.columns.str.strip()
     
-    # 🔒 TRAVA DEFINITIVA: Nomes exatos extraídos da sua planilha original
-    col_data_e = 'Data Pagamento'
-    col_valor_m = 'Valor'
-    col_grupos_n = 'Grupos'
-    col_tipo_p = 'Tipo'
-    col_situacao = 'Situação'
-    col_vendedor = 'Vendedor'
+    # Criamos uma lista com os nomes das colunas em letras minúsculas para facilitar a busca flexível
+    colunas_minusculas = [c.lower() for c in df.columns]
+    
+    # 🔍 PROCURA INTELIGENTE E FLEXÍVEL POR PALAVRA-CHAVE
+    try:
+        idx_data = [i for i, c in enumerate(colunas_minusculas) if 'pagamento' in c or 'data' in c][0]
+        col_data_e = df.columns[idx_data]
+    except IndexError:
+        st.error("Não encontramos a coluna de Data na sua planilha. Verifique se existe uma coluna de data.")
+        st.stop()
+        
+    try:
+        idx_valor = [i for i, c in enumerate(colunas_minusculas) if 'valor' in c][0]
+        col_valor_m = df.columns[idx_valor]
+    except IndexError:
+        st.error("Não encontramos a coluna de Valor na sua planilha.")
+        st.stop()
+        
+    try:
+        idx_grupos = [i for i, c in enumerate(colunas_minusculas) if 'grupo' in c or c == 'n'][0]
+        col_grupos_n = df.columns[idx_grupos]
+    except IndexError:
+        # Se não achar por 'grupo' ou 'n', assume a coluna de índice 13 (Coluna N, considerando índice 0)
+        col_grupos_n = df.columns[13] if len(df.columns) > 13 else df.columns[0]
+        
+    try:
+        idx_tipo = [i for i, c in enumerate(colunas_minusculas) if 'tipo' in c or c == 'p'][0]
+        col_tipo_p = df.columns[idx_tipo]
+    except IndexError:
+        # Se não achar por 'tipo' ou 'p', assume a coluna de índice 15 (Coluna P, considerando índice 0)
+        col_tipo_p = df.columns[15] if len(df.columns) > 15 else df.columns[0]
+        
+    try:
+        idx_situacao = [i for i, c in enumerate(colunas_minusculas) if 'situa' in c or 'status' in c][0]
+        col_situacao = df.columns[idx_situacao]
+    except IndexError:
+        st.error("Não encontramos a coluna de Situação na sua planilha.")
+        st.stop()
+        
+    try:
+        idx_vendedor = [i for i, c in enumerate(colunas_minusculas) if 'vendedor' in c or 'equipe' in c or 'consultor' in c][0]
+        col_vendedor = df.columns[idx_vendedor]
+    except IndexError:
+        col_vendedor = df.columns[0] # Fallback caso não encontre
 
-    # LIMPEZA: Remove linhas onde a Data de Pagamento ou Tipo estão completamente vazios
+    # LIMPEZA: Remove linhas onde os campos fundamentais estão vazios
     df = df.dropna(subset=[col_data_e, col_tipo_p])
     
-    # Converte a coluna para data de forma segura, ignorando textos inválidos
+    # Converte a coluna para formato de data de forma segura, ignorando erros de texto
     df[col_data_e] = pd.to_datetime(df[col_data_e], errors='coerce')
     df = df.dropna(subset=[col_data_e]) 
     
-    # Filtra anos realistas para eliminar o ano fantasma de 1970
+    # Filtra anos realistas para eliminar o ano padrão 1970
     df = df[df[col_data_e].dt.year >= 2020]
     
-    # REGRA GERAL: Considerar apenas o que estiver 'Conciliado'
+    # REGRA GERAL: Considerar apenas registros com a situação 'Conciliado'
     df = df[df[col_situacao].astype(str).str.lower().str.strip().str.contains('conciliado', na=False)]
     
     # Criação das colunas de período no padrão mmm/yyyy para o menu suspenso
@@ -54,8 +91,7 @@ def carregar_dados():
 try:
     df_base, col_data_e, col_valor_m, col_grupos_n, col_tipo_p, col_vendedor = carregar_dados()
 except Exception as e:
-    st.error(f"Erro crítico ao ler as colunas: {e}")
-    st.info("Verifique se os nomes das colunas na sua planilha mudaram recentemente.")
+    st.error(f"Erro inesperado no processamento dos dados: {e}")
     st.stop()
 
 # 3. BARRA LATERAL (MENU SUSPENSO)

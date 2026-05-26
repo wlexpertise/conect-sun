@@ -11,6 +11,32 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# 🎨 INJEÇÃO DE DESIGN EXECUTIVO (Fundo Cinza Claro, Fontes e Cards Escrupulosos)
+st.markdown("""
+    <style>
+        /* Fundo geral da aplicação em Cinza Claro */
+        .stApp {
+            background-color: #f1f5f9 !important;
+        }
+        /* Estilização dos blocos e cards de conteúdo */
+        div[data-testid="stVerticalBlock"] > div {
+            background-color: #ffffff;
+            border-radius: 10px;
+            padding: 10px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+        /* Forçar texto escuro para legibilidade no fundo claro */
+        h1, h2, h3, p, label, .stMarkdown {
+            color: #1e293b !important;
+        }
+        /* Ajustar a sidebar para um tom sutil que destaque as logos */
+        [data-testid="stSidebar"] {
+            background-color: #ffffff !important;
+            border-right: 1px solid #e2e8f0;
+        }
+    </style>
+""", unsafe_gradient=True, unsafe_allow_html=True)
+
 # 🛠️ FUNÇÃO AUXILIAR DE FORMATAÇÃO CONTÁBIL PADRÃO (0.0; (0.0); -)
 def formatar_brl(valor):
     if valor is None or pd.isna(valor) or valor == 0:
@@ -33,7 +59,6 @@ def carregar_dados():
     df = pd.read_excel(nome_do_arquivo)
     df.columns = df.columns.str.strip()
     
-    # Mapeamento por posição real das colunas
     col_tipo_fluxo = df.columns[2]     # Tipo (Entrada/Saída)
     col_data_pag = df.columns[4]       # Data de pagamento
     col_contato = df.columns[7]        # Contato (H) - Sócios/Clientes
@@ -42,7 +67,6 @@ def carregar_dados():
     col_valor = df.columns[12]         # Valor
     col_grupo = df.columns[13]         # Grupo
     
-    # Filtro de registros Conciliados
     df = df[df[col_situacao].astype(str).str.strip().str.lower() == 'conciliado'].copy()
     if df[col_valor].dtype == object:
         df[col_valor] = df[col_valor].astype(str).str.replace('R$', '', regex=False).str.replace('.', '', regex=False).str.replace(',', '.', regex=False).str.strip()
@@ -50,7 +74,6 @@ def carregar_dados():
     df[col_data_pag] = pd.to_datetime(df[col_data_pag], errors='coerce', dayfirst=True)
     df = df.dropna(subset=[col_data_pag])
     
-    # Índices temporais
     df['ano'] = df[col_data_pag].dt.year
     df['mes'] = df[col_data_pag].dt.month
     df['ano_mes_num'] = df[col_data_pag].dt.strftime('%Y%m')
@@ -63,27 +86,27 @@ def carregar_dados():
 
 df_base, col_data_pag, col_contato, col_categoria, col_valor, col_grupo = carregar_dados()
 
-# 3. NAVEGAÇÃO LATERAL (MENU EXECUTIVO COM NOVA LOGO)
+# 3. NAVEGAÇÃO LATERAL ATUALIZADA (COM LOGOHORIZONTAL E PÁGINAS SEPARADAS)
 st.sidebar.image("Logohorizontal.png", use_container_width=True)
 st.sidebar.markdown("---")
-pagina = st.sidebar.radio("Navegação Estratégica:", ["🚀 Visão Geral (YTD)", "🔍 Detalhe Operacional", "👥 Gestão de Sócios", "🏗️ Custos na Prestação de Serviço"])
 
-# Filtro de Mês unificado na Barra Lateral
+pagina = st.sidebar.radio(
+    "Navegação Estratégica:", 
+    ["🚀 Visão Geral (YTD)", "📈 Análise de Receitas", "📉 Detalhe de Despesas", "👥 Gestão de Sócios", "🏗️ Custos na Prestação de Serviço"]
+)
+
 df_ordenado = df_base.sort_values('ano_mes_num')
 meses_disponiveis = df_ordenado['ano_mes_texto'].unique().tolist()
 mes_selecionado = st.sidebar.selectbox("Selecione o Mês de Referência:", options=meses_disponiveis)
 
-# Processamento de escopo (Mês de corte vs Acumulado do Ano)
 reg_ref = df_base[df_base['ano_mes_texto'] == mes_selecionado].iloc[0]
 df_ytd = df_base[(df_base['ano'] == reg_ref['ano']) & (df_base['mes'] <= reg_ref['mes'])].copy()
 df_mes = df_base[df_base['ano_mes_texto'] == mes_selecionado].copy()
 
-
-# 💡 INCLUSÃO DA LOGO DO CLIENTE NO CANTO SUPERIOR DIREITO DE TODAS AS PÁGINAS
+# Cabeçalho Fixo com o alinhamento da Logo do Cliente
 header_col1, header_col2 = st.columns([5, 1])
 with header_col2:
     st.image("conectlogo.png", use_container_width=True)
-
 
 # --- PÁGINA 1: VISÃO GERAL (YTD) ---
 if pagina == "🚀 Visão Geral (YTD)":
@@ -121,96 +144,93 @@ if pagina == "🚀 Visão Geral (YTD)":
     fig_evolucao.add_trace(go.Bar(
         x=df_hist['ano_mes_texto'], 
         y=df_hist['Resultado'],
-        marker_color=['#ef4444' if value < 0 else '#10b981' for value in df_hist['Resultado']],
+        marker_color=['#ef4444' if value < 0 else '#28B260' for value in df_hist['Resultado']],
         text=textos_grafico, 
         textposition='auto'
     ))
     fig_evolucao.update_layout(
-        template="plotly_dark", 
-        margin=dict(t=15, b=15),
-        xaxis_title="Meses de Competência",
-        yaxis_title="Resultado Líquido"
+        template="plotly_white", 
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(t=15, b=15)
     )
     st.plotly_chart(fig_evolucao, use_container_width=True)
 
-
-# --- PÁGINA 2: DETALHE OPERACIONAL ---
-elif pagina == "🔍 Detalhe Operacional":
+# --- PÁGINA 2: ANÁLISE DE RECEITAS ---
+elif pagina == "📈 Análise de Receitas":
     with header_col1:
-        st.title("Detalhamento Operacional Executivo")
-        st.markdown(f"Análise aprofundada dos fluxos de caixa para a competência de **{mes_selecionado.upper()}**")
+        st.title("Análise de Receitas por Cliente")
+        st.markdown(f"Entradas registradas na competência de **{mes_selecionado.upper()}**")
     st.markdown("---")
     
-    col_esq, col_dir = st.columns(2)
+    df_cli = df_mes[df_mes['fluxo_limpo'] == 'entrada'].groupby(col_contato)[col_valor].sum().reset_index()
+    df_cli = df_cli.sort_values(col_valor, ascending=True).tail(12)
     
-    with col_esq:
-        st.markdown("### 👥 Volume de Entradas por Cliente")
-        df_cli = df_mes[df_mes['fluxo_limpo'] == 'entrada'].groupby(col_contato)[col_valor].sum().reset_index()
-        df_cli = df_cli.sort_values(col_valor, ascending=True).tail(10)
-        
-        if not df_cli.empty:
-            textos_cli = [formatar_brl(val) for val in df_cli[col_valor]]
-            fig_cli = px.bar(
-                df_cli, x=col_valor, y=col_contato, orientation='h', 
-                template="plotly_dark", labels={col_contato: 'Cliente / Origem', col_valor: 'Valor Recebido'}
-            )
-            fig_cli.update_traces(marker_color='#10b981', text=textos_cli, textposition='auto')
-            fig_cli.update_layout(yaxis={'categoryorder':'total ascending'})
-            st.plotly_chart(fig_cli, use_container_width=True)
-        else:
-            st.info("Nenhuma entrada registrada para este mês.")
-            
-    with col_dir:
-        st.markdown("### 🏷️ Distribuição de Saídas por Categoria")
-        grupos_saidas = ["Todos"] + df_mes[df_mes['fluxo_limpo'] == 'saída'][col_grupo].dropna().unique().tolist()
-        grupo_escolhido = st.selectbox("Refinar visualização por Grupo de Custo:", options=grupos_saidas)
-        
-        df_saidas_f = df_mes[df_mes['fluxo_limpo'] == 'saída']
-        if grupo_escolhido != "Todos":
-            df_saidas_f = df_saidas_f[df_saidas_f[col_grupo] == grupo_escolhido]
-            
-        df_cat = df_saidas_f.groupby(col_categoria)[col_valor].sum().reset_index()
-        df_cat = df_cat.sort_values(col_valor, ascending=True)
-        
-        if not df_cat.empty:
-            textos_cat = [formatar_brl(val) for val in df_cat[col_valor]]
-            fig_cat = px.bar(
-                df_cat, x=col_valor, y=col_categoria, orientation='h',
-                template="plotly_dark", labels={col_categoria: 'Categoria de Despesa', col_valor: 'Total Gasto'}
-            )
-            fig_cat.update_traces(marker_color='#ef4444', text=textos_cat, textposition='auto')
-            fig_cat.update_layout(yaxis={'categoryorder':'total ascending'})
-            st.plotly_chart(fig_cat, use_container_width=True)
-        else:
-            st.info("Nenhuma saída mapeada para os critérios atuais.")
+    if not df_cli.empty:
+        textos_cli = [formatar_brl(val) for val in df_cli[col_valor]]
+        fig_cli = px.bar(
+            df_cli, x=col_valor, y=col_contato, orientation='h', 
+            template="plotly_white", labels={col_contato: 'Cliente / Origem', col_valor: 'Valor Recebido'}
+        )
+        fig_cli.update_traces(marker_color='#0B5A60', text=textos_cli, textposition='auto')
+        fig_cli.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis={'categoryorder':'total ascending'})
+        st.plotly_chart(fig_cli, use_container_width=True)
+    else:
+        st.info("Nenhuma entrada registrada para este mês.")
 
+# --- PÁGINA 3: DETALHE DE DESPESAS (PÁGINA DEDICADA) ---
+elif pagina == "📉 Detalhe de Despesas":
+    with header_col1:
+        st.title("Distribuição de Despesas Operacionais")
+        st.markdown(f"Estrutura de saídas analíticas para a competência de **{mes_selecionado.upper()}**")
+    st.markdown("---")
+    
+    grupos_saidas = ["Todos"] + df_mes[df_mes['fluxo_limpo'] == 'saída'][col_grupo].dropna().unique().tolist()
+    grupo_escolhido = st.selectbox("Filtrar por Grupo de Custo da Empresa:", options=grupos_saidas)
+    
+    df_saidas_f = df_mes[df_mes['fluxo_limpo'] == 'saída']
+    if grupo_escolhido != "Todos":
+        df_saidas_f = df_saidas_f[df_saidas_f[col_grupo] == grupo_escolhido]
+        
+    df_cat = df_saidas_f.groupby(col_categoria)[col_valor].sum().reset_index()
+    df_cat = df_cat.sort_values(col_valor, ascending=True)
+    
+    if not df_cat.empty:
+        textos_cat = [formatar_brl(val) for val in df_cat[col_valor]]
+        fig_cat = px.bar(
+            df_cat, x=col_valor, y=col_categoria, orientation='h',
+            template="plotly_white", labels={col_categoria: 'Categoria de Despesa', col_valor: 'Total Gasto'}
+        )
+        # Tom azul ciano secundário da paleta enviada
+        fig_cat.update_traces(marker_color='#13A3B5', text=textos_cat, textposition='auto')
+        fig_cat.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis={'categoryorder':'total ascending'})
+        st.plotly_chart(fig_cat, use_container_width=True)
+    else:
+        st.info("Nenhuma saída mapeada para os critérios atuais.")
 
-# --- PÁGINA 3: GESTÃO DE SÓCIOS ---
+# --- PÁGINA 4: GESTÃO DE SÓCIOS ---
 elif pagina == "👥 Gestão de Sócios":
     with header_col1:
         st.title("Controle de Retiradas de Sócios")
-        st.markdown(f"Auditoria de retiradas, pró-labores e despesas compartilhadas em **{mes_selecionado.upper()}**")
+        st.markdown(f"Auditoria de retiradas e despesas compartilhadas em **{mes_selecionado.upper()}**")
     st.markdown("---")
     
     df_socios_mes = df_mes[df_mes[col_grupo].str.contains('SÓCIO', na=False, case=False)].copy()
     
     if not df_socios_mes.empty:
-        st.markdown("### 📊 Visão Consolidada por Beneficiário / Sócio")
         df_soc_agrupado = df_socios_mes.groupby(col_contato)[col_valor].sum().reset_index().sort_values(by=col_valor, ascending=False)
-        
         textos_soc_bars = [formatar_brl(val) for val in df_soc_agrupado[col_valor]]
         
         fig_soc_vert = px.bar(
-            df_soc_agrupado, x=col_contato, y=col_valor, template="plotly_dark",
+            df_soc_agrupado, x=col_contato, y=col_valor, template="plotly_white",
             labels={col_contato: 'Sócio / Beneficiário', col_valor: 'Total Retirado'}
         )
-        fig_soc_vert.update_traces(marker_color='#065f46', text=textos_soc_bars, textposition='auto')
+        fig_soc_vert.update_traces(marker_color='#0B5A60', text=textos_soc_bars, textposition='auto')
+        fig_soc_vert.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig_soc_vert, use_container_width=True)
         
         st.markdown("---")
-        
         list_socios = ["Todos"] + df_socios_mes[col_contato].unique().tolist()
-        socio_sel = st.selectbox("Filtrar Tabela e Linha do Tempo por Sócio:", list_socios)
+        socio_sel = st.selectbox("Filtrar Tabela por Sócio:", list_socios)
         
         if socio_sel != "Todos":
             df_socios_mes = df_socios_mes[df_socios_mes[col_contato] == socio_sel]
@@ -218,7 +238,6 @@ elif pagina == "👥 Gestão de Sócios":
         total_socio = df_socios_mes[col_valor].sum()
         st.metric(f"Total Isolado — {socio_sel}", formatar_brl(total_socio))
         
-        st.markdown("### 📋 Extrato de Lançamentos")
         df_tabela_socio = df_socios_mes[[col_data_pag, col_contato, 'Descrição', col_valor]].copy()
         df_tabela_socio[col_data_pag] = df_tabela_socio[col_data_pag].dt.strftime('%d/%m/%Y')
         df_tabela_socio[col_valor] = df_tabela_socio[col_valor].apply(formatar_brl)
@@ -226,33 +245,30 @@ elif pagina == "👥 Gestão de Sócios":
     else:
         st.info("Não foram encontradas transações vinculadas ao grupo de Sócios neste mês.")
 
-
-# --- PÁGINA 4: CUSTOS NA PRESTAÇÃO DE SERVIÇO (FILTRO ATUALIZADO) ---
+# --- PÁGINA 5: CUSTOS NA PRESTAÇÃO DE SERVIÇO ---
 elif pagina == "🏗️ Custos na Prestação de Serviço":
     with header_col1:
         st.title("Análise de Custos na Prestação de Serviço")
         st.markdown(f"Acompanhamento analítico dos custos diretos em **{mes_selecionado.upper()}**")
     st.markdown("---")
     
-    # 🔍 Busca atualizada para refletir o nome exato do grupo
     df_insumos = df_mes[df_mes[col_grupo].str.contains('CUSTOS NA PRESTAÇÃO DE SERVIÇO', na=False, case=False)].copy()
     
     if not df_insumos.empty:
         total_insumos = df_insumos[col_valor].sum()
         st.metric("Gasto Total Consolidado", formatar_brl(total_insumos))
         
-        st.markdown("### 📊 Detalhamento por Categoria Operacional")
         df_ins_cat = df_insumos.groupby(col_categoria)[col_valor].sum().reset_index().sort_values(col_valor, ascending=True)
-        
         textos_ins = [formatar_brl(val) for val in df_ins_cat[col_valor]]
+        
         fig_ins = px.bar(
             df_ins_cat, x=col_valor, y=col_categoria, orientation='h', 
-            template="plotly_dark", labels={col_categoria: 'Categoria de Despesa', col_valor: 'Total'}
+            template="plotly_white", labels={col_categoria: 'Categoria de Despesa', col_valor: 'Total'}
         )
-        fig_ins.update_traces(marker_color='#c2410c', text=textos_ins, textposition='auto')
+        fig_ins.update_traces(marker_color='#13A3B5', text=textos_ins, textposition='auto')
+        fig_ins.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig_ins, use_container_width=True)
         
-        st.markdown("### 📑 Notas de Entrada e Ordens de Pagamento")
         df_tabela_ins = df_insumos[[col_data_pag, col_contato, 'Descrição', col_valor]].copy()
         df_tabela_ins[col_data_pag] = df_tabela_ins[col_data_pag].dt.strftime('%d/%m/%Y')
         df_tabela_ins[col_valor] = df_tabela_ins[col_valor].apply(formatar_brl)

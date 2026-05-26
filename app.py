@@ -4,19 +4,19 @@ import plotly.express as px
 
 # 1. CONFIGURAÇÃO DA PÁGINA
 st.set_page_config(
-    page_title="Painel Financeiro - Conectsol Engenharia",
-    page_icon="💰",
+    page_title="Painel Financeiro - WL Expertise",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# 2. CARREGAMENTO E TRATAMENTO DOS DADOS REAIS
+# 2. CARREGAMENTO E TRATAMENTO DOS DADOS
 @st.cache_data
 def carregar_dados():
     nome_do_arquivo = 'dados_conectsol.xlsx' 
     df = pd.read_excel(nome_do_arquivo)
     
-    # Limpeza de nomes das colunas (remove espaços invisíveis nas pontas)
+    # Limpeza de nomes das colunas
     df.columns = df.columns.str.strip()
     
     # Mapeamento por posição real das colunas na planilha
@@ -26,7 +26,7 @@ def carregar_dados():
     col_categoria = df.columns[10]     # 11ª coluna: 'Categoria'
     col_situacao = df.columns[11]      # 12ª coluna: 'Situação' (Conciliado)
     col_valor = df.columns[12]         # 13ª coluna: 'Valor'
-    col_grupo = df.columns[13]         # 14ª coluna: 'Grupo' (DESPESA COM PESSOAL, etc.)
+    col_grupo = df.columns[13]         # 14ª coluna: 'Grupo'
     
     # 🧼 TRATAMENTO E HIGIENIZAÇÃO
     # Filtrar apenas transações com status 'Conciliado'
@@ -54,7 +54,7 @@ def carregar_dados():
     df['mes_nome_pt'] = df[col_data_pag].dt.month.map(meses_pt)
     df['ano_mes_texto'] = df['mes_nome_pt'] + '/' + df['ano'].astype(str)
     
-    # Padronização de fluxo para somas corretas
+    # Padronização de fluxo para termos textuais exatos
     df['fluxo_limpo'] = df[col_tipo_fluxo].astype(str).str.strip().str.lower()
     
     return df, col_data_pag, col_contato, col_categoria, col_valor, col_grupo
@@ -62,18 +62,18 @@ def carregar_dados():
 try:
     df_base, col_data_pag, col_contato, col_categoria, col_valor, col_grupo = carregar_dados()
 except Exception as e:
-    st.error(f"Erro ao processar a planilha Conectsol: {e}")
+    st.error(f"Erro ao processar a planilha: {e}")
     st.stop()
 
 
-# 3. BARRA LATERAL (MENU RESERVADO PARA NAVEGAÇÃO DE PÁGINAS)
+# 3. BARRA LATERAL (MENU EXCLUSIVO PARA NAVEGAÇÃO)
 st.sidebar.image("Logo horizontal-fundo.png", use_container_width=True)
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🗺️ NAVEGAÇÃO")
 pagina = st.sidebar.radio("Ir para:", ["📊 Dashboard Financeiro", "📄 Outras Páginas (Em breve)"])
 
 
-# 4. CORPO DO DASHBOARD (PÁGINA PRINCIPAL)
+# 4. CORPO DO DASHBOARD
 if pagina == "📊 Dashboard Financeiro":
     st.title("Painel Financeiro & Business Intelligence")
     st.markdown("Análise de Performance de Caixa Integrada — **Conectsol Engenharia**")
@@ -84,7 +84,6 @@ if pagina == "📊 Dashboard Financeiro":
     meses_disponiveis = df_ordenado['ano_mes_texto'].unique().tolist()
     
     if meses_disponiveis:
-        # Colocamos o seletor em destaque no topo do dashboard
         f1, f2 = st.columns([2, 4])
         with f1:
             mes_selecionado = st.selectbox(
@@ -92,13 +91,12 @@ if pagina == "📊 Dashboard Financeiro":
                 options=meses_disponiveis
             )
         
-        # Coleta metadados do mês escolhido para calcular o YTD
+        # Coleta metadados do mês escolhido para o YTD
         registro_ref = df_base[df_base['ano_mes_texto'] == mes_selecionado].iloc[0]
         ano_ref = registro_ref['ano']
         mes_ref = registro_ref['mes']
         
-        # 📊 CÁLCULO E REGRA DE NEGÓCIO DO YTD (Year-To-Date)
-        # Filtra tudo do mesmo ano, desde o mês 1 até o mês selecionado
+        # 📊 CÁLCULO DO YTD (Year-To-Date)
         df_ytd = df_base[(df_base['ano'] == ano_ref) & (df_base['mes'] <= mes_ref)]
         
         entradas_ytd = df_ytd[df_ytd['fluxo_limpo'] == 'entrada'][col_valor].sum()
@@ -106,11 +104,11 @@ if pagina == "📊 Dashboard Financeiro":
         resultado_ytd = entradas_ytd - saidas_ytd
         margem_ytd = (resultado_ytd / entradas_ytd * 100) if entradas_ytd > 0 else 0
         
-        # Dados filtrados unicamente para os gráficos do mês selecionado
+        # Filtro para os gráficos detalhados do mês atual
         df_mes = df_base[df_base['ano_mes_texto'] == mes_selecionado].copy()
         
     else:
-        st.warning("Nenhum dado financeiro 'Conciliado' foi identificado na base de dados.")
+        st.warning("Nenhum dado financeiro 'Conciliado' foi encontrado.")
         st.stop()
 
     # 5. CARDS DE PERFORMANCE ACUMULADA (YTD)
@@ -122,17 +120,18 @@ if pagina == "📊 Dashboard Financeiro":
     
     st.markdown("---")
 
-    # 6. GRÁFICO HISTÓRICO MENSAL DO ANO
+    # 6. GRÁFICO HISTÓRICO MENSAL DO ANO (CORRIGIDO)
     st.markdown(f"### 📈 Evolução de Resultado Mensal ({ano_ref})")
     df_ano_atual = df_base[df_base['ano'] == ano_ref].copy()
     
-    # Agrupa entradas e saídas por mês cronologicamente
-    df_historico = df_ano_atual.groupby(['ano_mes_num', 'ano_mes_texto', col_tipo_fluxo])[col_valor].sum().unstack(fill_value=0).reset_index()
-    # Garante a presença das colunas mesmo se não houver registros no arquivo
-    if 'Entrada' not in df_historico.columns: df_historico['Entrada'] = 0
-    if 'Saída' not in df_historico.columns: df_historico['Saída'] = 0
+    # Agrupamento estruturado usando a coluna tratada 'fluxo_limpo'
+    df_historico = df_ano_atual.groupby(['ano_mes_num', 'ano_mes_texto', 'fluxo_limpo'])[col_valor].sum().unstack(fill_value=0).reset_index()
     
-    df_historico['Resultado Líquido'] = df_historico['Entrada'] - df_historico['Saída']
+    # Garante a existência das colunas para evitar novos erros de chave
+    if 'entrada' not in df_historico.columns: df_historico['entrada'] = 0
+    if 'saída' not in df_historico.columns: df_historico['saída'] = 0
+    
+    df_historico['Resultado Líquido'] = df_historico['entrada'] - df_historico['saída']
     df_historico = df_historico.sort_values('ano_mes_num')
     
     fig_hist = px.bar(
@@ -149,7 +148,7 @@ if pagina == "📊 Dashboard Financeiro":
 
     st.markdown("---")
 
-    # 7. SEÇÃO DE ANÁLISE DE CUSTOS E CLIENTES DO MÊS SELECIONADO
+    # 7. SEÇÃO DE ANÁLISE OPERACIONAL
     st.markdown(f"### 🔍 Detalhamento Operacional: Mês `{mes_selecionado.upper()}`")
     
     col_esquerda, col_direita = st.columns(2)
@@ -157,7 +156,6 @@ if pagina == "📊 Dashboard Financeiro":
     with col_esquerda:
         st.markdown("### 🍕 Saídas por Categoria")
         
-        # Filtro de Gastos por Grupo trazido de volta para refinar o gráfico de categorias
         grupos_disponiveis = ["Todos"] + df_mes[df_mes['fluxo_limpo'] == 'saída'][col_grupo].dropna().unique().tolist()
         grupo_escolhido = st.selectbox("Filtrar gastos por Grupo:", options=grupos_disponiveis)
         
@@ -183,7 +181,6 @@ if pagina == "📊 Dashboard Financeiro":
             
     with col_direita:
         st.markdown("### 👥 Entradas por Cliente")
-        # Espaçador visual para alinhar com o selectbox da esquerda
         st.markdown("<div style='margin-bottom: 68px;'></div>", unsafe_allow_html=True)
         
         df_entradas_mes = df_mes[df_mes['fluxo_limpo'] == 'entrada']

@@ -1,320 +1,153 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import io
 
-# 1. CONFIGURAÇÃO DA PÁGINA (Estilo Power BI)
+# 1. CONFIGURAÇÃO DA PÁGINA (Deve ser o primeiro comando Streamlit)
 st.set_page_config(
-    page_title="WL Expertise - Dashboard Financeiro",
-    page_icon="📊",
-    layout="wide"
+    page_title="Painel Financeiro - Conectsol Engenharia",
+    page_icon="💰",
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-# Paleta de Cores WL Expertise
-COLOR_PRIMARY = "#0B5A60"
-COLOR_SECONDARY = "#13A3B5"
-COLOR_SUCCESS = "#28B260"
-
-# 2. BASE DE DADOS EMBUTIDA DIRETAMENTE (Dados brutos fornecidos)
-dados_brutos = """Banco	Tipo	Data de pagamento	Contato	Descrição	Categoria	Situação	Valor	Grupo	Instituição	Tipo_Gasto	Mês	Tri
-756	Saída	02/01/2026	FUN - EDUARDO HENRIQUE DOS SANTOS SILVA	SALARIO JANEIRO	Salários e Ordenados	Conciliado	1480,00	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	02/01/2026	FUN - PAULO HENRIQUE LEROY FARIA SILVA	SALARIO JANEIRO	Salários e Ordenados	Conciliado	1756,06	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	02/01/2026	GERAL	CASA RENA	Supermercado	Conciliado	133,37	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	02/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA PESSOAL	Retirada dos Sócios	Conciliado	100,00	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	02/01/2026	CRISTIANO DOS SANTOS DAMASCENO	SALARIO JANEIRO	Salários e Ordenados	Conciliado	2934,68	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	02/01/2026	BELENUS LTDA	EQUIPAMENTO DA ESCOLA WAGNER (FLORESTA)	Insumos Operacionais	Conciliado	21147,43	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	02/01/2026	BELENUS LTDA	EQUIPAMENTO CLIENTE ANDREIA (MARQUINHO GOIANO)	Insumos Operacionais	Conciliado	11128,69	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	02/01/2026	BELENUS LTDA	EQUIPAMENTO DA ESCOLA WAGNER (VENDA NOVA)	Insumos Operacionais	Conciliado	24858,25	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	02/01/2026	TECIDOS E ARMARINHOS MIGUEL BARTOLOMEU S/A	NF: 23570900	Insumos Operacionais	Conciliado	645,55	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	05/01/2026	PAGUEVELOZ INSTITUICAO DE PAGAMENTO LTDA	PAGUEVELOZ	Insumos Operacionais	Conciliado	157,28	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	05/01/2026	BAR E RESTAURANTE ASSIS OLIVEIRA	ALMOCO	Alimentação	Conciliado	68,00	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	05/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA PESSOAL	Retirada dos Sócios	Conciliado	55,00	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	05/01/2026	BANCO SANTANDER (BRASIL) S.A.	CARTAO SANTANDER	Cartão de Crédito	Conciliado	447,00	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	06/01/2026	MATEUS PEIXOTO ANTONIO	PINTURA DA CASA 1/3	Manutenção	Conciliado	2340,00	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	06/01/2026	TELEFONICA BRASIL S.A.	TELEFONE	Telefonia e Internet	Conciliado	619,98	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	06/01/2026	ITALUB LUBRIFICANTES LTDA	TROCA DE OLEO	Manutenção	Conciliado	227,00	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	06/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	DESPESA PESSOAL (ERISMERY FERREIRA RODRIGUES LAGES)	Despesas Pessoais	Conciliado	67,00	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	06/01/2026	SÓC - ANDERSON LOPES MENEZES	12/47 - RENEGOCIAÇÃO NOPETROL SANTANDER	Outras Despesas Administrativas	Conciliado	964,41	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	06/01/2026	POSTO DELTA ITAUNA LTDA	ABASTECIMENTO HB20	Combustível	Conciliado	140,70	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	06/01/2026	SÓC - LINCOLN DE SOUZA LOPES MENEZES	RETIRADA PESSOAL	Retirada dos Sócios	Conciliado	1500,00	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Entrada	06/01/2026	DULCE APARECIDA RODRIGUES	VALOR REFERENTE A COMPRAS DE EQUIPAMENTOS	Instalação Fotovoltáica	Conciliado	4500,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Saída	07/01/2026	FUN - EDUARDO HENRIQUE DOS SANTOS SILVA	ADIATAMENTO (EMPRESTIMO) SALARIO	Salários e Ordenados	Conciliado	1500,00	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	07/01/2026	TELEFONICA BRASIL S.A.	TELEFONE	Telefonia e Internet	Conciliado	75,35	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	07/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA PESSOAL	Retirada dos Sócios	Conciliado	60,00	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Entrada	07/01/2026	MARCIO MAURICIO FREITAS	CADASTRO DE UC	Cadastro de UC	Conciliado	150,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
--	Saída	08/01/2026	BB ADMINISTRADORA DE CONSORCIOS S.A.	BB - CONSORCIO HB20 18/26	Financiamentos	Sem conciliação	2535,32	EMPRESTIMOS E FINANCIAMENTOS	0	DESPESA	1	1º Tri
-756	Saída	08/01/2026	MERCADO LIVRE	3 AGENDAS	Material de Escritório	Conciliado	209,70	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	09/01/2026	POSTO XV DE NOVEMBRO LTDA	ABASTECIMENTO	Combustível	Conciliado	119,75	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	09/01/2026	BUSINESS NETWORKING MASTER FRANQUIA BRASIL LTDA	PREMIO PALESTRANTE BNI	Publicidade e Propaganda	Conciliado	180,00	DESPESAS COM MARKETING	Sicoob	DESPESA	1	1º Tri
-756	Saída	09/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA PESSOAL	Retirada dos Sócios	Conciliado	91,00	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	ASSOCIACAO DE PROTECAO A PROPRIETARIOS DE CARROS - APPCAR	SEGURO HB20	Seguros	Conciliado	349,86	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	PAGO A ALAN MOREIRA 01565126610	Despesas Pessoais	Conciliado	54,37	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	COOPERATIVA DOS PRODUTORES RURAIS DE ITAUNA LIMITADA	ABASTECIMENTO	Combustível	Conciliado	113,50	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	NuBank - ConectSol	CARTAO EMPRESA	Cartão de Crédito	Conciliado	407,00	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	SÓC - THALES DE SOUZA CARVALHO MENEZES	RETIRADA PESSOAL	Retirada dos Sócios	Conciliado	1331,23	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	SÓC - ANDERSON LOPES MENEZES	RETIRADA PESSOAL	Retirada dos Sócios	Conciliado	28,89	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA PESSOAL	Retirada dos Sócios	Conciliado	83,00	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	SÓC - LINCOLN DE SOUZA LOPES MENEZES	RETIRADA PESSOAL	Retirada dos Sócios	Conciliado	422,00	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	ELETRO FERRAGENS CASA E CIA LTDA	COMPRA BOLTS E SIKADUR	Insumos Operacionais	Conciliado	136,00	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	12/01/2026	ARTUR BARBOSA NASCIMENTO	ALMOCO EQUIPE	Alimentação	Conciliado	99,90	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	SÓC - THALES DE SOUZA CARVALHO MENEZES	RETIRADA PESSOAL	Retirada dos Sócios	Conciliado	2787,46	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	35.390.206 GERSON KEVEN COLARES SOUZA	ALIMENTACAO	Alimentação	Conciliado	38,00	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	PRONTOMED PLANOS DE SAUDE LTDA	CONVENIO MEDICO	Assistência Médica	Conciliado	726,27	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA PESSOAL	Retirada dos Sócios	Conciliado	100,00	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	BANCO DO BRASIL SA	PRONAMPE	Empréstimos	Conciliado	4129,54	EMPRESTIMOS E FINANCIAMENTOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	SILVIO DONIZETE FERREIRA	RADIO FORMIGA	Publicidade e Propaganda	Conciliado	300,00	DESPESAS COM MARKETING	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	POSTO BARRA SETE LTDA.	ABASTECIMENTO	Combustível	Conciliado	146,10	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	GILSON ALVES COUTO	ALUGUEL DO GALPAO	Aluguéis	Conciliado	500,00	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA PESSOAL GUILHERME	Retirada dos Sócios	Conciliado	30,00	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	IVANIL DOS SANTOS MOREIRA	FRETES BASES WAGNER - VENDA NOVA	Fretes	Conciliado	550,00	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	12/01/2026	VALE PAMPULHA ALUGUEL DE EQUIPAMENTOS LTDA	ALUGUEL DE GUINCHO	Locacao de Maquinas e Equipamentos	Conciliado	297,00	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	12/01/2026	ORLANDO JOSE GUILHERME	CARREGAMENTO DAS BASES E PLACAS	Mão de Obra Terceirizada	Conciliado	700,00	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	12/01/2026	WL EXPERTISE LTDA	BPO DE JULHO	BPO Financeiro	Conciliado	1850,00	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Entrada	12/01/2026	AUGUSTO DE PAULA PEREIRA	ENTRADA	Instalação Fotovoltáica	Conciliado	8000,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Entrada	12/01/2026	HUDSON MAIA ARANTES JUNIOR	SERVICOS CONECTSOL	Serviços ConectSol	Conciliado	5541,67	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Saída	13/01/2026	MAOS A OBRA CONSTRUCOES LTDA	INSUMOS CLIENTE MARCILIO	Insumos Operacionais	Conciliado	16,00	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	13/01/2026	CEMIG DISTRIBUICAO S.A	FATURA CEMIG	Energia Elétrica	Conciliado	91,10	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	13/01/2026	VALE PAMPULHA ALUGUEL DE EQUIPAMENTOS LTDA		Locacao de Maquinas e Equipamentos	Conciliado	50,00	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	13/01/2026	BAR E RESTAURANTE SANDOVAL LTDA	ALMOCO	Alimentação	Conciliado	62,00	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	13/01/2026	AUTO POSTO ALELUIA LTDA	ABASTECIMENTO	Combustível	Conciliado	131,30	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	13/01/2026	MAOS A OBRA CONSTRUCOES LTDA	INSUMOS CLIENTE MARÍLIO	Insumos Operacionais	Conciliado	45,00	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	13/01/2026	GERAL	CASA RENA S/A	Supermercado	Conciliado	49,48	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Entrada	13/01/2026	RAFAEL ALVES RODRIGUES	PAGAMENTO EM NOME BRUNO NOGUEIRA	Instalação Fotovoltáica	Conciliado	2700,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Entrada	13/01/2026	RAFAEL ALVES RODRIGUES	ENTRADA DE 5.000 DE 12.000	Instalação Fotovoltáica	Conciliado	5000,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Saída	14/01/2026	MERCADO PAGO INSTITUICAO DE PAGAMENTO LTDA	SIKADUR	Insumos Operacionais	Conciliado	714,30	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	14/01/2026	SÓC - LINCOLN DE SOUZA LOPES MENEZES	RETIRADA PESSOAL	Retirada dos Sócios	Conciliado	200,00	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	14/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA PESSOAL	Retirada dos Sócios	Conciliado	438,81	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	14/01/2026	BELENUS LTDA	EQUIPAMENTOS MARIA DO CARMO	Insumos Operacionais	Conciliado	4011,57	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	14/01/2026	COOPERATIVA DOS PRODUTORES RURAIS DE ITAUNA LIMITADA	ABASTECIMENTO	Combustível	Conciliado	113,50	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	14/01/2026	BANCO DO BRASIL SA	FINANCIAMENTO HB20	Financiamentos	Conciliado	976,40	EMPRESTIMOS E FINANCIAMENTOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	14/01/2026	CONDOMINIO DO EDIFICIO BELA VISTA	CONDOMINIO	Condominio	Conciliado	302,17	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	14/01/2026	ELETRO FERRAGENS CASA E CIA LTDA	INSUMOS CLIENTE CONTAGEM	Insumos Operacionais	Conciliado	89,70	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	14/01/2026	COOPERATIVA DE CREDITO CREDIUNA LTDA . - SICOOB CREDIUNA	TARIFA COBRANCA	Tarifas Bancárias	Conciliado	1,99	DESPESAS FINANCEIRAS	Sicoob	DESPESA	1	1º Tri
--	Entrada	14/01/2026	SILVIO BATISTA FILHO	INFINITY - RESTANTE AMPLIAÇAO DO SILVIO PAGO EM CARTÃO DE CRÉDITO	Instalação Fotovoltáica	Sem conciliação	1000,00	SERVIÇOS	0	VENDA	1	1º Tri
-756	Entrada	14/01/2026	VICENTE DE PAULA DA SILVA	RECEBIMENTO EM NOME DE INSPECOES PITANGUI LTDA (DESCONTADO ART)	Instalação Fotovoltáica	Conciliado	8707,61	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Entrada	14/01/2026	RODRIGO SOUZA NOGUEIRA	BOLETO 3/4	Instalação Fotovoltáica	Conciliado	26600,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Saída	15/01/2026	CRISTIANO DOS SANTOS DAMASCENO	VALE PARA FUNCIONÁRIO	Salários e Ordenados	Conciliado	200,00	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	15/01/2026	ASSOCIACAO DE PROTECAO A PROPRIETARIOS DE CARROS - APPCAR	SEGURO DE VEICULO	Seguros	Conciliado	185,18	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	15/01/2026	CRISTIANO DOS SANTOS DAMASCENO	REEMBOLSO DE ALIMENTAÇÃO	Alimentação	Conciliado	37,00	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	15/01/2026	EMBRACON ADMINISTRADORA DE CONSORCIO LTDA	CONSORCIO EMBRACON	Consórcio	Conciliado	3100,00	DESPESAS COM IMÓVEIS	Sicoob	DESPESA	1	1º Tri
-756	Saída	15/01/2026	OMEGA ELETROFERRAGENS LTDA	NF 15967	Insumos Operacionais	Conciliado	485,91	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	15/01/2026	CENTERDADOS SERVICOS LTDA	CONTABILIDADE	Honorários Contábeis	Conciliado	480,00	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	15/01/2026	EMBRACON ADMINISTRADORA DE CONSORCIO LTDA	CONSORCIO EMBRACON	Consórcio	Conciliado	3100,00	DESPESAS COM IMÓVEIS	Sicoob	DESPESA	1	1º Tri
-756	Entrada	15/01/2026	ANGELO PEREIRA DE SOUZA	SERVICOS CONECTSOL	Serviços ConectSol	Conciliado	510,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Saída	16/01/2026	PANIFICADORA AMARAL LTDA	CAFE DA EQUIPE	Alimentação	Conciliado	13,77	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	16/01/2026	SONIK SERVICOS DE COMUNICACAO LTDA	INTERNET CASA E LOJA	Telefonia e Internet	Conciliado	197,30	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	16/01/2026	SÓC - ANDERSON LOPES MENEZES	CONSORCIO DO APARTAMENTO	Despesas Pessoais	Conciliado	2696,21	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	16/01/2026	LOJA ELETRICA LTDA	COMPRAS LINCOLN	Insumos Operacionais	Conciliado	636,00	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	16/01/2026	DON' ANA TROPEIRO E FOOD'S LTDA	ALMOCO	Alimentação	Conciliado	39,89	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	16/01/2026	SÓC - ANDERSON LOPES MENEZES	PLACA PORTÃO (RINALD JOSE CORRADI)	Retirada dos Sócios	Conciliado	247,50	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	16/01/2026	CAPITAL COMERCIO SERVICOS E AUTOMACAO INDUSTRIAL LTDA	MATERIAL CLIENTE CARLOS	Insumos Operacionais	Conciliado	121,83	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	16/01/2026	CONECTCAR INSTITUICAO DE PAGAMENTO E SOLUCOES DE MOBILIDADE ELETRONICA S.A	RECARGA PEDAGIO	Pedágio	Conciliado	100,00	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	16/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA PESSOAL	Retirada dos Sócios	Conciliado	60,00	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	16/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA PESSOAL EM NOME DE ANA PAULA DE OLIVEIRA CAMPOS	Retirada dos Sócios	Conciliado	8,99	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	16/01/2026	COOPERATIVA DOS PRODUTORES RURAIS DE ITAUNA LIMITADA	ABASTECIMENTO	Combustível	Conciliado	113,50	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Entrada	16/01/2026	MILTON DA SILVA MELO	ENTRADA	Instalação Fotovoltáica	Conciliado	5000,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Entrada	16/01/2026	MILTON DA SILVA MELO	ENTRADA	Instalação Fotovoltáica	Conciliado	3851,61	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Saída	19/01/2026	SÓC - ANDERSON LOPES MENEZES	RETIRADA PESSOAL	Retirada dos Sócios	Conciliado	188,60	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	19/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA PESSOAL	Retirada dos Sócios	Conciliado	145,22	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	19/01/2026	CENTER POSTO LTDA	ABASTECIMENTO	Combustível	Conciliado	152,00	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	19/01/2026	SUN 21 DISTRIBUIDORA	2 PLACAS PARA CLIENTE NICOLAU	Insumos Operacionais	Conciliado	1025,15	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	19/01/2026	LUVIK SISTEMAS LTDA	LUVIK	Licença de Software	Conciliado	189,90	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	19/01/2026	POSTO TUBARAO LTDA	ABASTECIMENTO	Combustível	Conciliado	117,25	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	19/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA PESSOAL	Retirada dos Sócios	Conciliado	1078,00	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	19/01/2026	CESAR REPARACAO AUTOMOTIVA LTDA	MANUTENCAO DE VEÍCULO	Manutenção	Conciliado	400,00	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Entrada	19/01/2026	LUCAS FREDERICO DE LIMA BASTISTA	ENTRADA	Instalação Fotovoltáica	Conciliado	6000,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Saída	20/01/2026	LARA EMPREENDIMENTOS LTDA	INSUMOS	Insumos Operacionais	Conciliado	14,90	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	20/01/2026	CONCREBET INDUSTRIA E COMERCIO LTDA	INSUMOS	Insumos Operacionais	Conciliado	344,25	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	20/01/2026	MINISTERIO DO TRABALHO E EMPREGO - MTE	FGTS 13º	FGTS	Conciliado	404,80	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	20/01/2026	GERAL	CASA RENA S/A	Supermercado	Conciliado	64,78	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	20/01/2026	SÓC - LINCOLN DE SOUZA LOPES MENEZES	FRETE DA MUDANÇA DA LOJA	Outras Despesas Administrativas	Conciliado	7000,00	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	20/01/2026	QUILONG ZHAO	PIX	Despesas Pessoais	Conciliado	43,00	DESPEA ADMINISTRATIVA	Sicoob	DESPESA	1	1º Tri
-756	Saída	20/01/2026	GERAL	MART MINAS DISTRIBUICAO LTDA	Supermercado	Conciliado	55,23	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	20/01/2026	MINISTERIO DA FAZENDA	SIMPLES NACIONAL	Simples Nacional	Conciliado	1935,62	IMPOSTOS OPERACIONAIS	Sicoob	DESPESA	1	1º Tri
-756	Saída	20/01/2026	ITAU UNIBANCO S.A.	EMPRESTIMO ITAU	Empréstimos	Conciliado	5796,49	EMPRESTIMOS E FINANCIAMENTOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	20/01/2026	MINISTERIO DO TRABALHO E EMPREGO - MTE	INSS JANEIRO	INSS	Conciliado	1118,78	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	20/01/2026	COOPERATIVA DE CREDITO CREDIUNA LTDA . - SICOOB CREDIUNA	DEBITO PACOTE DE SERVICOS	Tarifas Bancárias	Conciliado	35,00	DESPESAS FINANCEIRAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	20/01/2026	MINISTERIO DO TRABALHO E EMPREGO - MTE	FGTS JANEIRO	13º Salário	Conciliado	540,65	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Entrada	20/01/2026	44.015.061 CHARLEI CRISTIAN DUARTE	PAGAMENTO GDASH	Outras Entradas	Conciliado	267,00	OUTRAS ENTRADAS	Sicoob	OUTRAS	1	1º Tri
-756	Saída	21/01/2026	POSTO OLARIA LTDA	ABASTECIMENTO	Combustível	Conciliado	93,40	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	21/01/2026	AMERICANA LANCHES LTDA	ALMOCO	Alimentação	Conciliado	15,00	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	21/01/2026	PEDRO BARBOSA DO PRADO	INSUMOS CLIENTE WAGNER VENDA NOVA	Insumos Operacionais	Conciliado	550,00	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	21/01/2026	AMARZO LTDA	NF 9951	Insumos Operacionais	Conciliado	86,00	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	21/01/2026	ABC DISTRIBUICAO DE PETROLEO LTDA	ABASTECIMENTO	Combustível	Conciliado	117,25	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	21/01/2026	J E COMERCIO DE FERRAGENS LTDA	BROCA	Insumos Operacionais	Conciliado	15,00	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	21/01/2026	SUN 21 DISTRIBUIDORA	INSUMOS PARA A AMPLIAÇÃO DO PAULO LAIA	Insumos Operacionais	Conciliado	6527,82	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	22/01/2026	OMEGA ELETROFERRAGENS LTDA	NF 16019	Insumos Operacionais	Conciliado	150,80	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	22/01/2026	COOPERATIVA DE CREDITO CREDIUNA LTDA . - SICOOB CREDIUNA	EMPRESTIMO SICOOB DEBITO AUTOMÁTICO	Empréstimos	Conciliado	1333,16	EMPRESTIMOS E FINANCIAMENTOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	22/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA PESSOAL	Retirada dos Sócios	Conciliado	45,00	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
--	Saída	22/01/2026	SÓC - ANDERSON LOPES MENEZES	DINHEIRO - APLICAÇÃO NO OMBRO	Despesas Médicas	Sem conciliação	2000,00	DESPESAS DOS SÓCIOS	0	DESPESA	1	1º Tri
-756	Saída	22/01/2026	SUL AMERICA SEGUROS DE PESSOAS E PREVIDENCIA S.A.	DDA	Seguros	Conciliado	447,99	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Entrada	22/01/2026	MILTON DA SILVA MELO	AMPLIAÇÃO	Instalação Fotovoltáica	Conciliado	1229,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
--	Entrada	22/01/2026	RAFAEL ALVES RODRIGUES	DINHEIRO - RESTANTE DA INSTALACÃO	Instalação Fotovoltáica	Sem conciliação	4300,00	SERVIÇOS	0	VENDA	1	1º Tri
-756	Saída	23/01/2026	PANIFICADORA SINGULAR LTDA	CAFE	Alimentação	Conciliado	8,20	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	23/01/2026	POSTO MARCAL	ABASTECIMENTO	Combustível	Conciliado	114,75	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	23/01/2026	32.870.734 WELINTON NUNES ROCHA	INSTALACAO DE 3 SISTEMAS	Mão de Obra Terceirizada	Conciliado	2000,00	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	23/01/2026	CEMIG DISTRIBUICAO S.A	ENERGIA ELÉTRICA DA CONECTVOLT	Energia Elétrica	Conciliado	68,71	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	23/01/2026	SERVICO AUTONOMO DE AGUA E ESGOTO - SAAE	ÁGUA DA CONECTVOLT	Água	Conciliado	60,08	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	23/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA PESSOAL EM NOME DE JOSE DIAS FURTADO E FILHOS LTDA	Retirada dos Sócios	Conciliado	60,00	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	23/01/2026	DECK BEER HAMBURGUERIA E GRILL LTDA	ALMOCO	Alimentação	Conciliado	86,97	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Entrada	23/01/2026	CARLOS SOARES DOS SANTOS	CARLOS	Instalação Fotovoltáica	Conciliado	4000,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Saída	26/01/2026	MERCADO LIVRE	COMPRA SUPORTES CALHETAO CLIENTE DIMAS	Insumos Operacionais	Conciliado	135,48	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	26/01/2026	CRISTIANO DOS SANTOS DAMASCENO	REEMBOLSO ABASTECIMENTO	Combustível	Conciliado	100,00	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	26/01/2026	MOREIRA E MOREIRA PNEUS LTDA	MANUTENCAO VEICULAR	Manutenção	Conciliado	280,00	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	26/01/2026	44.015.061 CHARLEI CRISTIAN DUARTE	MAO DE OBRA CHARLEI	Mão de Obra Terceirizada	Conciliado	330,00	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	26/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA EM NOME DE MAGIC JUMP TRAMPOLIM PARK	Retirada dos Sócios	Conciliado	79,80	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	26/01/2026	GOOGLE BRASIL INTERNET LTDA.	ANUNCIO PAGO	Publicidade e Propaganda	Conciliado	600,00	DESPESAS COM MARKETING	Sicoob	DESPESA	1	1º Tri
-756	Saída	26/01/2026	AMARZO LTDA	MATERIAL WAGER VENDA NOVA	Insumos Operacionais	Conciliado	150,00	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	26/01/2026	REDE DOM PEDRO DE POSTOS LTDA.	ABASTECIMENTO	Combustível	Conciliado	122,25	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	26/01/2026	60.909.562 JULIA GABRIELE ALMEIDA DE LIMA	ALMOCO GUILHERME	Alimentação	Conciliado	25,50	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	26/01/2026	MAURO ANTONIO DA SILVA	BORRACHARIA	Manutenção	Conciliado	100,00	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	26/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA EM NOME DE ANDERSON WITTE	Retirada dos Sócios	Conciliado	19,00	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	26/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA EM NOME DE MAGIC JUMP TRAMPOLIM PARK	Retirada dos Sócios	Conciliado	4,20	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	26/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA PESSOAL	Retirada dos Sócios	Conciliado	235,00	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	26/01/2026	UAI SABORES CONVENIENCIA LTDA	ALIMENTACAO	Alimentação	Conciliado	15,40	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Entrada	26/01/2026	CARLOS SOARES DOS SANTOS	RESTANTE	Instalação Fotovoltáica	Conciliado	1500,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Saída	27/01/2026	SERVICO AUTONOMO DE AGUA E ESGOTO - SAAE	ÁGUA CONECTVOLT	Água	Conciliado	61,37	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	27/01/2026	MARGARIDA APARECIDA MENEZES	BROCAS E PARAFUSOS	Insumos Operacionais	Conciliado	70,00	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	27/01/2026	LUIDAR TINTAS LTDA	TINTAS CASA	Insumos Operacionais	Conciliado	400,00	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	27/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA PESSOAL VILDETE FELIX	Retirada dos Sócios	Conciliado	61,60	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	27/01/2026	CONFIDENCIAS BAR LTDA	ALMOCO	Alimentação	Conciliado	56,00	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	27/01/2026	BELENUS LTDA	EQUIPAMENTOS CLIENTE VICENTE, PASTA 1	Insumos Operacionais	Conciliado	6465,91	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	27/01/2026	GO3M ASSESSORIA CONTABIL LTDA	ABERTURA NOVO CNPJ	Honorários Contábeis	Conciliado	1117,00	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Entrada	27/01/2026	WEMERSON DE SOUZ MADUREIRA	CADASTRO DE UC	Cadastro de UC	Conciliado	250,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Saída	28/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA PESSOAL - PBK SORVETES ITAUNA LTDA	Retirada dos Sócios	Conciliado	43,10	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	28/01/2026	MINISTERIO DO TRABALHO E EMPREGO - MTE	FGTS	FGTS	Conciliado	759,26	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	28/01/2026	AMARZO LTDA	NF 9980	Insumos Operacionais	Conciliado	158,08	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	28/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	UBER	Retirada dos Sócios	Conciliado	6,00	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
--	Entrada	28/01/2026	CAIO CESAR FERREIRA	FINANCIAMENTO SANTANDER DO CLIENTE CAIO	Instalação Fotovoltáica	Sem conciliação	5020,85	SERVIÇOS	0	VENDA	1	1º Tri
-756	Saída	29/01/2026	POSTO N S APARECIDA	ABASTECIMENTO	Combustível	Conciliado	122,25	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	29/01/2026	BELENUS LTDA	EQUIPAMENTOS DULCE	Insumos Operacionais	Conciliado	5564,21	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	29/01/2026	POSTO XV DE NOVEMBRO LTDA	ABASTECIMENTO	Combustível	Conciliado	112,25	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	29/01/2026	CASA DOS PARAFUSOS LTDA	CACHIMBO 13	Insumos Operacionais	Conciliado	75,00	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Saída	29/01/2026	RESTAURANTE E LANCHONETE CASA NOVA LTDA	ALMOCO EQUIPE	Alimentação	Conciliado	65,00	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
--	Saída	29/01/2026	DNL COMERCIO E SERVICOS LTDA.	EQUIPAMENTOS GELA GUELA	Insumos Operacionais	Sem conciliação	20336,80	CUSTOS NA PRESTAÇÃO DE SERVIÇO	0	CUSTO	1	1º Tri
-756	Saída	29/01/2026	DEIVID SILVEIRA DA CRUZ 06505046666	LANCHE	Alimentação	Conciliado	45,00	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Entrada	29/01/2026	DISTRIBUIDORA DE ALIMENTOS MIODIBAO LTDA	CADASTRO DE UC	Cadastro de UC	Conciliado	150,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Entrada	29/01/2026	GELA GUELA FORMIGA	ENTRADA PARA COMPRA DE MATERIAIS	Instalação Fotovoltáica	Conciliado	20000,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Entrada	29/01/2026	GELA GUELA FORMIGA	PARECELA 5/10 DIONE	Instalação Fotovoltáica	Conciliado	5000,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Entrada	29/01/2026	44.015.061 CHARLEI CRISTIAN DUARTE	RECEBIMENTO CHARLEI	Outras Entradas	Conciliado	3125,00	OUTRAS ENTRADAS	Sicoob	OUTRAS	1	1º Tri
-756	Entrada	29/01/2026	JOÃO EUSTAQUIO NOGUEIRA DE MELO	CADASTRO DE UC	Cadastro de UC	Conciliado	150,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Saída	29/01/2026	BANCO SANTANDER (BRASIL) S.A.	REPOSIÇÃO DE SALDO NEGATIVO	Transferência Santander Saída	Conciliado	16000,00	TRANSFERÊNCIAS	Sicoob	OUTRAS	1	1º Tri
-033	Entrada	29/01/2026	COOPERATIVA DE CREDITO CREDIUNA LTDA . - SICOOB CREDIUNA	REPOSIÇÃO DE SALDO NEGATIVO	Transferência Santander Entrada	Sem conciliação	16000,00	TRANSFERÊNCIAS	Santander	OUTRAS	1	1º Tri
-756	Saída	30/01/2026	62.499.477 LORENA ELLEN GONCALVES SANTOS	ALMOCO	Alimentação	Conciliado	72,00	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	30/01/2026	CONSELHO REGIONAL DE ENGENHARIA E AGRONOMIA DE MINAS GERAIS	CONSELHO DE CLASSE	Conselho de Classe	Conciliado	566,40	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	30/01/2026	TECNOPONTO TECNOLOGIA AVANCADA EM CONTROLE DE PONTO E ACESSO LTDA	PONTO ELETRONICO	Controle de Ponto	Conciliado	50,00	DESPESAS COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	30/01/2026	UNISAUDE	ASSISTENCIA MEDICA	Assistência Médica	Conciliado	75,00	DESPESA COM PESSOAL	Sicoob	DESPESA	1	1º Tri
-756	Saída	30/01/2026	ANA JULIA LOURENCO DE CASTRO	MAO DE OBRA AJUDANTE	Mão de Obra Terceirizada	Conciliado	130,00	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	1	1º Tri
-756	Entrada	30/01/2026	EDILEUZA APARECIDA DE SOUZA ALMEIDA	RECEBIMENTO RESTANTE AMPLIAÇÃO CLIENTE FLAVIO (EDILEUZA) EM NOME DE AMELIO FLAVIO VIEIRA DE ALMEIDA	Instalação Fotovoltáica	Conciliado	3000,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Entrada	30/01/2026	GELA GUELA FORMIGA	DIONE 4/5	Instalação Fotovoltáica	Conciliado	4000,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Entrada	29/01/2026	KARINA MARA NOGUEIRA	BOLETO 4/4	Instalação Fotovoltáica	Conciliado	2000,00	SERVIÇOS	Sicoob	VENDA	1	1º Tri
-756	Saída	29/01/2026	COOPERATIVA DE CREDITO CREDIUNA LTDA . - SICOOB CREDIUNA	TARIFA COBRANCA	Tarifas Bancárias	Conciliado	1,99	DESPESAS FINANCEIRAS	Sicoob	DESPESA	1	1º Tri
-756	Saída	30/01/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	RETIRADA PESSOAL - ELIANE MORAIS DE SOUZA	Retirada dos Sócios	Conciliado	35,90	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	1	1º Tri
-756	Saída	02/02/2026	MAOS A OBRA CONSTRUCOES LTDA	INSUMOS	Insumos Operacionais	Conciliado	25,33	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	2	1º Tri
-756	Saída	02/02/2026	ITAUNA COMBUSTIVEIS LTDA	ABASTECIMENTO	Combustível	Conciliado	208,78	DESPESAS ADMINISTRATIVAS	Sicoob	DESPESA	2	1º Tri
-756	Saída	02/02/2026	SÓC - LINCOLN DE SOUZA LOPES MENEZES	RETIRADA PESSOAL IDENTIFICADA EM EXTRATO	Retirada dos Sócios	Conciliado	300,00	DESPESAS DOS SÓCIOS	Sicoob’	DESPESA	2	1º Tri
-756	Saída	02/02/2026	SÓC - GUILHERME SOUZA SANTOS MENEZES	ROUPINHA PARA ESCOLA IZZIE	Despesas Pessoais	Conciliado	265,43	DESPESAS DOS SÓCIOS	Sicoob	DESPESA	2	1º Tri
-756	Saída	02/02/2026	ROSA MARIA DIAS ISRAEL	LANCHE EQUIPE	Alimentação	Conciliado	24,00	DESPESA COM PESSOAL	Sicoob	DESPESA	2	1º Tri
-756	Saída	02/02/2026	LEONARDO MACIEL GOMES	RUFO E PROTECOES LATERAIS DO GALPAO DO ESTOQUE	Insumos Operacionais	Conciliado	650,00	CUSTOS NA PRESTAÇÃO DE SERVIÇO	Sicoob	CUSTO	2	1º Tri"""
-
-# 3. TRATAMENTO DOS DADOS (ETL EM MEMÓRIA)
-@st.cache_data
-def get_dataframe():
-    df = pd.read_csv(io.StringIO(dados_brutos), sep='\t')
-    # Tratamento e limpeza financeira
-    df["Valor"] = df["Valor"].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
-    df["Valor"] = pd.to_numeric(df["Valor"], errors='coerce').fillna(0.0)
-    df["Data de pagamento"] = pd.to_datetime(df["Data de pagamento"], format="%d/%m/%Y", errors='coerce')
-    df["Mês_Nome"] = df["Mês"].map({1: "Janeiro", 2: "Fevereiro"})
-    return df
-
-df = get_dataframe()
-
-# 4. CABEÇALHO DO DASHBOARD
-col_logo, col_title = st.columns([1, 4])
-with col_logo:
-    # Se a logo estiver na raiz do repositório, o Streamlit acha direto pelo nome do arquivo
-    try:
-        st.image("Logo horizontal-fundo.png", width=220)
-    except:
-        st.markdown(f"<h3 style='color: {COLOR_PRIMARY};'>WL Expertise</h3>", unsafe_allow_html=True)
-
-with col_title:
-    st.markdown(f"<h1 style='color: {COLOR_PRIMARY}; margin: 0;'>Painel Financeiro & Business Intelligence</h1>", unsafe_allow_html=True)
-    st.markdown("---")
-
-# 5. FILTROS DINÂMICOS
-st.markdown("### 🎛️ Filtros Rápidos")
-c1, c2, c3 = st.columns(3)
-with c1:
-    mes_sel = st.selectbox("Mês Competência:", ["Todos", "Janeiro", "Fevereiro"])
-with c2:
-    grupo_sel = st.selectbox("Grupo de Conta:", ["Todos"] + list(df["Grupo"].unique()))
-with c3:
-    sit_sel = st.selectbox("Status Conciliação:", ["Todos"] + list(df["Situação"].unique()))
-
-# Aplicando Filtros
-df_filtered = df.copy()
-if mes_sel != "Todos":
-    df_filtered = df_filtered[df_filtered["Mês_Nome"] == mes_sel]
-if grupo_sel != "Todos":
-    df_filtered = df_filtered[df_filtered["Grupo"] == grupo_sel]
-if sit_sel != "Todos":
-    df_filtered = df_filtered[df_filtered["Situação"] == sit_sel]
-
-# 6. CÁLCULO DE MÉTRICAS (Lógica FP&A)
-# Exclui Transferências entre contas para não inflar a receita operacional
-df_operacional = df_filtered[df_filtered["Grupo"] != "TRANSFERÊNCIAS"]
-
-receitas = df_operacional[df_operacional["Tipo_Gasto"] == "VENDA"]["Valor"].sum()
-custos = df_operacional[df_operacional["Tipo_Gasto"] == "CUSTO"]["Valor"].sum()
-despesas = df_operacional[df_operacional["Tipo_Gasto"] == "DESPESA"]["Valor"].sum()
-lucro = receitas - (custos + despesas)
-margem = (lucro / receitas * 100) if receitas > 0 else 0.0
-
-# 7. CARDS DE KPI (Estilo Cartões de Alto Impacto)
+# Estilização CSS para o tema escuro/azul escuro conforme o seu modelo
 st.markdown("""
-<style>
-    .card { background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-left: 5px solid; }
-</style>
+    <style>
+    .main .block-container { padding-top: 2rem; padding-bottom: 2rem; }
+    h1, h2, h3 { color: #f1f1f1; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    .stCard {
+        background-color: #1e293b;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    </style>
 """, unsafe_allow_html=True)
 
-kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+# 2. CARREGAMENTO E TRATAMENTO DOS DADOS
+@st.cache_data
+def carregar_dados():
+    # Substitua 'seu_arquivo.xlsx' pelo nome real do seu arquivo caso não use os dados embutidos
+    # Exemplo: df = pd.read_excel('dados_financeiros.xlsx')
+    
+    # Simulando a estrutura real da sua base com dados até Abril para o funcionamento correto:
+    dados_exemplo = {
+        'Data de Pagamento': pd.date_range(start='2026-01-01', end='2026-04-30', freq='D').tolist() * 3,
+        'Situação': ['Conciliado'] * 100 + ['Aberto'] * 20,
+        'Tipo': ['Receita', 'Despesa', 'Despesa'] * 40,
+        'Valor': [1500, 500, 300] * 40,
+        'Categoria': ['Vendas', 'Administrativo', 'Pessoal'] * 40,
+        'Fornecedor/Cliente': ['Moinho Dois Irmãos', 'Santa Rosa Alimentos', 'Carla Ferreira'] * 40,
+        'Equipe Vendas': ['Varejo', 'Online', 'Distribuidoras'] * 40
+    }
+    df = pd.DataFrame(dados_exemplo)
+    
+    # Garantindo que a Coluna E (Data de Pagamento) está no formato de data correto
+    df['Data de Pagamento'] = pd.to_datetime(df['Data de Pagamento'])
+    
+    # REGRA 2: Considerar APENAS o que tiver Situação == 'Conciliado'
+    df = df[df['Situação'].str.lower() == 'conciliado']
+    
+    # REGRA 1: Criar o Mês de Competência baseado estritamente na Data de Pagamento
+    # Criamos uma coluna de texto amigável e uma para ordenação
+    df['Mês_Nome'] = df['Data de Pagamento'].dt.strftime('%b').str.lower()
+    df['Mês_Num'] = df['Data de Pagamento'].dt.month
+    
+    return df
+
+try:
+    df_base = carregar_dados()
+except Exception as e:
+    st.error(f"Erro ao carregar a base de dados: {e}")
+    st.stop()
+
+# 3. CABEÇALHO COM LOGO
+col_logo, col_titulo = st.columns([1, 4])
+with col_logo:
+    try:
+        st.image("Logo horizontal-fundo.png", width=200)
+    except:
+        st.write("📂 **Conectsol Engenharia**")
+
+with col_titulo:
+    st.title("Painel Financeiro & Business Intelligence")
+    st.subheader("Análise de Resultado de Caixa")
+
+st.markdown("---")
+
+# 4. FILTRO DE MÊS (Mês de Competência baseado em Pagamento)
+# Mapeamento para exibição amigável e ordenada
+meses_map = {1: 'jan', 2: 'fev', 3: 'mar', 4: 'abr', 5: 'mai', 6: 'jun', 
+             7: 'jul', 8: 'ago', 9: 'set', 10: 'out', 11: 'nov', 12: 'dez'}
+
+# Descobre quais meses realmente existem na base após o filtro de conciliados
+meses_existentes_num = sorted(df_base['Mês_Num'].unique())
+meses_existentes_nome = [meses_map[m] for m in meses_existentes_num]
+
+# Seletor horizontal no topo para os meses
+mes_selecionado_nome = st.radio(
+    "Mês de Competência (Data de Pagamento):",
+    options=meses_existentes_nome,
+    horizontal=True
+)
+
+# Filtrando o dataframe final com base no mês selecionado
+df_filtrado = df_base[df_base['Mês_Nome'] == mes_selecionado_nome]
+
+# 5. CÁLCULO DOS INDICADORES (KPIs)
+receitas = df_filtrado[df_filtrado['Tipo'].str.lower() == 'receita']['Valor'].sum()
+despesas = df_filtrado[df_filtrado['Tipo'].str.lower() == 'despesa']['Valor'].sum()
+lucro_liquido = receitas - despesas
+margem_lucro = (lucro_liquido / receitas * 100) if receitas > 0 else 0
+
+# Exibição dos Cards Principais
+kpi1, kpi2, kpi3 = st.columns(3)
 with kpi1:
-    st.markdown(f"<div class='card' style='border-left-color: {COLOR_SECONDARY};'><p style='color:gray; margin:0;'>RECEITAS (FATURAMENTO)</p><h2 style='color:{COLOR_SECONDARY}; margin:0;'>R$ {receitas:,.2f}</h2></div>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="stCard">
+        <h3 style='color: #ef4444; margin:0;'>📉 Despesas</h3>
+        <h2 style='margin:10px 0 0 0;'>R$ {despesas:,.2f}</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
 with kpi2:
-    st.markdown(f"<div class='card' style='border-left-color: #E67E22;'><p style='color:gray; margin:0;'>CUSTOS OPERACIONAIS</p><h2 style='color:#E67E22; margin:0;'>R$ {custos:,.2f}</h2></div>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="stCard">
+        <h3 style='color: #10b981; margin:0;'>📈 Receitas</h3>
+        <h2 style='margin:10px 0 0 0;'>R$ {receitas:,.2f}</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
 with kpi3:
-    st.markdown(f"<div class='card' style='border-left-color: #E74C3C;'><p style='color:gray; margin:0;'>DESPESAS ADMINISTRATIVAS</p><h2 style='color:#E74C3C; margin:0;'>R$ {despesas:,.2f}</h2></div>", unsafe_allow_html=True)
-with kpi4:
-    color_l = COLOR_SUCCESS if lucro >= 0 else "#E74C3C"
-    st.markdown(f"<div class='card' style='border-left-color: {color_l};'><p style='color:gray; margin:0;'>RESULTADO LÍQUIDO ({margem:.1f}%)</p><h2 style='color:{color_l}; margin:0;'>R$ {lucro:,.2f}</h2></div>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="stCard">
+        <h3 style='color: #3b82f6; margin:0;'>📊 Lucro Líquido (Margem)</h3>
+        <h2 style='margin:10px 0 0 0;'>R$ {lucro_liquido:,.2f} <span style='font-size:16px; color:#94a3b8;'>({margem_lucro:.1f}%)</span></h2>
+    </div>
+    """, unsafe_allow_html=True)
 
-st.markdown("<br>", unsafe_allow_html=True)
+# 6. GRÁFICOS DO DASHBOARD
+graf1, graf2 = st.columns(2)
 
-# 8. GRÁFICOS ANALÍTICOS
-g1, g2 = st.columns(2)
+with graf1:
+    st.markdown("### Despesa por Categoria")
+    df_desp_cat = df_filtrado[df_filtrado['Tipo'].str.lower() == 'despesa'].groupby('Categoria')['Valor'].sum().reset_index()
+    if not df_desp_cat.empty:
+        fig_desp = px.pie(df_desp_cat, values='Valor', names='Categoria', hole=0.4,
+                          color_discrete_sequence=px.colors.sequential.Reds_r)
+        fig_desp.update_layout(margin=dict(t=20, b=20, l=20, r=20), template="plotly_dark")
+        st.plotly_chart(fig_desp, use_container_width=True)
+    else:
+        st.info("Nenhuma despesa registrada para este período.")
 
-with g1:
-    st.markdown(f"<h4 style='color: {COLOR_PRIMARY};'>Evolução por Categoria de Gasto</h4>", unsafe_allow_html=True)
-    df_g1 = df_operacional.groupby(["Categoria", "Tipo_Gasto"])["Valor"].sum().reset_index().sort_values(by="Valor", ascending=True)
-    fig_g1 = px.bar(df_g1, x="Valor", y="Categoria", color="Tipo_Gasto", 
-                    color_discrete_map={"VENDA": COLOR_SUCCESS, "CUSTO": "#E67E22", "DESPESA": "#E74C3C"},
-                    orientation='h', template="simple_white")
-    fig_g1.update_layout(height=350, margin=dict(l=20, r=20, t=20, b=20), yaxis_title="")
-    st.plotly_chart(fig_g1, use_container_width=True)
-
-with g2:
-    st.markdown(f"<h4 style='color: {COLOR_PRIMARY};'>Visão por Instituição e Volume</h4>", unsafe_allow_html=True)
-    df_g2 = df_filtered.groupby("Instituição")["Valor"].sum().reset_index()
-    fig_g2 = px.pie(df_g2, values="Valor", names="Instituição", 
-                    color_discrete_sequence=[COLOR_PRIMARY, COLOR_SECONDARY, "#BDC3C7"], hole=0.4)
-    fig_g2.update_layout(height=350, margin=dict(l=20, r=20, t=20, b=20))
-    st.plotly_chart(fig_g2, use_container_width=True)
-
-# 9. CONSOLIDAÇÃO DOS DADOS FORMATADOS
-st.markdown(f"<h4 style='color: {COLOR_PRIMARY};'>Tabela de Conferência Operacional</h4>", unsafe_allow_html=True)
-df_table = df_filtered[["Data de pagamento", "Contato", "Descrição", "Grupo", "Tipo_Gasto", "Valor"]].copy()
-df_table["Data de pagamento"] = df_table["Data de pagamento"].dt.strftime('%d/%m/%Y')
-df_table["Valor"] = df_table["Valor"].map("R$ {:,.2f}".format)
-st.dataframe(df_table, use_container_width=True, height=300)
+with graf2:
+    st.markdown("### Análise por Equipe de Vendas")
+    df_vendas = df_filtrado[df_filtrado['Tipo'].str.lower() == 'receita'].groupby('Equipe Vendas')['Valor'].sum().reset_index()
+    if not df_vendas.empty:
+        fig_vendas = px.bar(df_vendas, x='Equipe Vendas', y='Valor', 
+                            color='Valor', color_continuous_scale='Viridis')
+        fig_vendas.update_layout(margin=dict(t=20, b=20, l=20, r=20), template="plotly_dark")
+        st.plotly_chart(fig_vendas, use_container_width=True)
+    else:
+        st.info("Nenhuma receita registrada para este período.")

@@ -11,31 +11,32 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 🎨 INJEÇÃO DE DESIGN EXECUTIVO (Fundo Cinza Claro, Fontes e Cards Escrupulosos)
+# 🎨 INJEÇÃO DE DESIGN EXECUTIVO CORRIGIDA (Sem parâmetros fantasmas)
 st.markdown("""
     <style>
-        /* Fundo geral da aplicação em Cinza Claro */
+        /* Fundo geral da aplicação em Cinza Claro Corporativo */
         .stApp {
-            background-color: #f1f5f9 !important;
+            background-color: #f8fafc !important;
         }
-        /* Estilização dos blocos e cards de conteúdo */
+        /* Estilização dos blocos/cards de conteúdo */
         div[data-testid="stVerticalBlock"] > div {
-            background-color: #ffffff;
-            border-radius: 10px;
-            padding: 10px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            background-color: #ffffff !important;
+            border-radius: 8px !important;
+            padding: 20px !important;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1) !important;
+            margin-bottom: 1rem !important;
         }
-        /* Forçar texto escuro para legibilidade no fundo claro */
+        /* Forçar cor dos textos para garantir leitura no fundo claro */
         h1, h2, h3, p, label, .stMarkdown {
-            color: #1e293b !important;
+            color: #0f172a !important;
         }
-        /* Ajustar a sidebar para um tom sutil que destaque as logos */
+        /* Sidebar branca com separador sutil */
         [data-testid="stSidebar"] {
             background-color: #ffffff !important;
-            border-right: 1px solid #e2e8f0;
+            border-right: 1px solid #e2e8f0 !important;
         }
     </style>
-""", unsafe_gradient=True, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # 🛠️ FUNÇÃO AUXILIAR DE FORMATAÇÃO CONTÁBIL PADRÃO (0.0; (0.0); -)
 def formatar_brl(valor):
@@ -86,7 +87,7 @@ def carregar_dados():
 
 df_base, col_data_pag, col_contato, col_categoria, col_valor, col_grupo = carregar_dados()
 
-# 3. NAVEGAÇÃO LATERAL ATUALIZADA (COM LOGOHORIZONTAL E PÁGINAS SEPARADAS)
+# 3. NAVEGAÇÃO LATERAL
 st.sidebar.image("Logohorizontal.png", use_container_width=True)
 st.sidebar.markdown("---")
 
@@ -103,7 +104,7 @@ reg_ref = df_base[df_base['ano_mes_texto'] == mes_selecionado].iloc[0]
 df_ytd = df_base[(df_base['ano'] == reg_ref['ano']) & (df_base['mes'] <= reg_ref['mes'])].copy()
 df_mes = df_base[df_base['ano_mes_texto'] == mes_selecionado].copy()
 
-# Cabeçalho Fixo com o alinhamento da Logo do Cliente
+# Cabeçalho Fixo com a Logo do Cliente alinhada à direita
 header_col1, header_col2 = st.columns([5, 1])
 with header_col2:
     st.image("conectlogo.png", use_container_width=True)
@@ -177,7 +178,7 @@ elif pagina == "📈 Análise de Receitas":
     else:
         st.info("Nenhuma entrada registrada para este mês.")
 
-# --- PÁGINA 3: DETALHE DE DESPESAS (PÁGINA DEDICADA) ---
+# --- PÁGINA 3: DETALHE DE DESPESAS ---
 elif pagina == "📉 Detalhe de Despesas":
     with header_col1:
         st.title("Distribuição de Despesas Operacionais")
@@ -200,7 +201,6 @@ elif pagina == "📉 Detalhe de Despesas":
             df_cat, x=col_valor, y=col_categoria, orientation='h',
             template="plotly_white", labels={col_categoria: 'Categoria de Despesa', col_valor: 'Total Gasto'}
         )
-        # Tom azul ciano secundário da paleta enviada
         fig_cat.update_traces(marker_color='#13A3B5', text=textos_cat, textposition='auto')
         fig_cat.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis={'categoryorder':'total ascending'})
         st.plotly_chart(fig_cat, use_container_width=True)

@@ -11,29 +11,26 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 🎨 INJEÇÃO DE DESIGN EXECUTIVO CORRIGIDA (Sem parâmetros fantasmas)
+# 🎨 DESIGN MINIMALISTA CORPORATIVO (Fundo cinza claro unificado, sem caixas excessivas)
 st.markdown("""
     <style>
-        /* Fundo geral da aplicação em Cinza Claro Corporativo */
+        /* Fundo limpo e contínuo para o App */
         .stApp {
-            background-color: #f8fafc !important;
+            background-color: #f3f4f6 !important;
         }
-        /* Estilização dos blocos/cards de conteúdo */
-        div[data-testid="stVerticalBlock"] > div {
-            background-color: #ffffff !important;
-            border-radius: 8px !important;
-            padding: 20px !important;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1) !important;
-            margin-bottom: 1rem !important;
-        }
-        /* Forçar cor dos textos para garantir leitura no fundo claro */
+        /* Garantir textos principais em cinza escuro profissional */
         h1, h2, h3, p, label, .stMarkdown {
-            color: #0f172a !important;
+            color: #1f2937 !important;
         }
-        /* Sidebar branca com separador sutil */
+        /* Ajuste fino na barra lateral branca */
         [data-testid="stSidebar"] {
             background-color: #ffffff !important;
-            border-right: 1px solid #e2e8f0 !important;
+            border-right: 1px solid #e5e7eb !important;
+        }
+        /* Customização sutil dos cards nativos de métricas */
+        div[data-testid="stMetricValue"] > div {
+            color: #0B5A60 !important;
+            font-weight: 700;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -87,7 +84,7 @@ def carregar_dados():
 
 df_base, col_data_pag, col_contato, col_categoria, col_valor, col_grupo = carregar_dados()
 
-# 3. NAVEGAÇÃO LATERAL
+# 3. NAVEGAÇÃO LATERAL (MENU EXECUTIVO)
 st.sidebar.image("Logohorizontal.png", use_container_width=True)
 st.sidebar.markdown("---")
 
@@ -104,16 +101,18 @@ reg_ref = df_base[df_base['ano_mes_texto'] == mes_selecionado].iloc[0]
 df_ytd = df_base[(df_base['ano'] == reg_ref['ano']) & (df_base['mes'] <= reg_ref['mes'])].copy()
 df_mes = df_base[df_base['ano_mes_texto'] == mes_selecionado].copy()
 
-# Cabeçalho Fixo com a Logo do Cliente alinhada à direita
-header_col1, header_col2 = st.columns([5, 1])
-with header_col2:
-    st.image("conectlogo.png", use_container_width=True)
+# Cabeçalho integrado sem blocos brancos artificiais
+header_col1, header_col2 = st.columns([4, 1])
 
 # --- PÁGINA 1: VISÃO GERAL (YTD) ---
 if pagina == "🚀 Visão Geral (YTD)":
     with header_col1:
         st.title("Performance Financeira WL Expertise")
         st.subheader(f"Acumulado Estratégico (YTD) até {mes_selecionado.upper()}")
+    with header_col2:
+        st.image("conectlogo.png", use_container_width=True)
+        
+    st.markdown("---")
     
     ent_ytd = df_ytd[df_ytd['fluxo_limpo'] == 'entrada'][col_valor].sum()
     sai_ytd = df_ytd[df_ytd['fluxo_limpo'] == 'saída'][col_valor].sum()
@@ -152,7 +151,7 @@ if pagina == "🚀 Visão Geral (YTD)":
     fig_evolucao.update_layout(
         template="plotly_white", 
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(t=15, b=15)
+        margin=dict(t=25, b=15)
     )
     st.plotly_chart(fig_evolucao, use_container_width=True)
 
@@ -160,7 +159,10 @@ if pagina == "🚀 Visão Geral (YTD)":
 elif pagina == "📈 Análise de Receitas":
     with header_col1:
         st.title("Análise de Receitas por Cliente")
-        st.markdown(f"Entradas registradas na competência de **{mes_selecionado.upper()}**")
+        st.subheader(f"Entradas registradas na competência de {mes_selecionado.upper()}")
+    with header_col2:
+        st.image("conectlogo.png", use_container_width=True)
+        
     st.markdown("---")
     
     df_cli = df_mes[df_mes['fluxo_limpo'] == 'entrada'].groupby(col_contato)[col_valor].sum().reset_index()
@@ -182,7 +184,10 @@ elif pagina == "📈 Análise de Receitas":
 elif pagina == "📉 Detalhe de Despesas":
     with header_col1:
         st.title("Distribuição de Despesas Operacionais")
-        st.markdown(f"Estrutura de saídas analíticas para a competência de **{mes_selecionado.upper()}**")
+        st.subheader(f"Estrutura de saídas analíticas para a competência de {mes_selecionado.upper()}")
+    with header_col2:
+        st.image("conectlogo.png", use_container_width=True)
+        
     st.markdown("---")
     
     grupos_saidas = ["Todos"] + df_mes[df_mes['fluxo_limpo'] == 'saída'][col_grupo].dropna().unique().tolist()
@@ -211,7 +216,10 @@ elif pagina == "📉 Detalhe de Despesas":
 elif pagina == "👥 Gestão de Sócios":
     with header_col1:
         st.title("Controle de Retiradas de Sócios")
-        st.markdown(f"Auditoria de retiradas e despesas compartilhadas em **{mes_selecionado.upper()}**")
+        st.subheader(f"Auditoria de retiradas e despesas compartilhadas em {mes_selecionado.upper()}")
+    with header_col2:
+        st.image("conectlogo.png", use_container_width=True)
+        
     st.markdown("---")
     
     df_socios_mes = df_mes[df_mes[col_grupo].str.contains('SÓCIO', na=False, case=False)].copy()
@@ -249,7 +257,10 @@ elif pagina == "👥 Gestão de Sócios":
 elif pagina == "🏗️ Custos na Prestação de Serviço":
     with header_col1:
         st.title("Análise de Custos na Prestação de Serviço")
-        st.markdown(f"Acompanhamento analítico dos custos diretos em **{mes_selecionado.upper()}**")
+        st.subheader(f"Acompanhamento analítico dos custos diretos em {mes_selecionado.upper()}")
+    with header_col2:
+        st.image("conectlogo.png", use_container_width=True)
+        
     st.markdown("---")
     
     df_insumos = df_mes[df_mes[col_grupo].str.contains('CUSTOS NA PRESTAÇÃO DE SERVIÇO', na=False, case=False)].copy()

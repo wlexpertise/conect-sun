@@ -16,26 +16,25 @@ def carregar_dados():
     nome_do_arquivo = 'dados_conectsol.xlsx' 
     df = pd.read_excel(nome_do_arquivo)
     
-    # Remove espaços extras dos nomes das colunas originais
+    # Remove espaços extras invisíveis nas pontas dos nomes das colunas
     df.columns = df.columns.str.strip()
     
-    # 🔍 FORÇANDO OS NOMES EXATOS DAS COLUNAS (Ajustado para evitar erros)
-    # Procuramos as colunas que contém as palavras-chave de forma limpa
-    col_data_e = [c for c in df.columns if 'pagamento' in c.lower()][0]
-    col_valor_m = [c for c in df.columns if 'valor' in c.lower()][0]
-    col_grupos_n = [c for c in df.columns if 'grupo' in c.lower() or 'n' == c.lower()][0]
-    col_tipo_p = [c for c in df.columns if 'tipo' in c.lower() or 'p' == c.lower()][0]
-    col_situacao = [c for c in df.columns if 'situa' in c.lower()][0]
-    col_vendedor = [c for c in df.columns if 'vendedor' in c.lower() or 'equipe' in c.lower() or 'consultor' in c.lower()][0]
+    # 🔒 TRAVA DEFINITIVA: Nomes exatos extraídos da sua planilha original
+    col_data_e = 'Data Pagamento'
+    col_valor_m = 'Valor'
+    col_grupos_n = 'Grupos'
+    col_tipo_p = 'Tipo'
+    col_situacao = 'Situação'
+    col_vendedor = 'Vendedor'
 
-    # LIMPEZA CRÍTICA: Remove linhas onde a Data de Pagamento ou Tipo estão vazios
+    # LIMPEZA: Remove linhas onde a Data de Pagamento ou Tipo estão completamente vazios
     df = df.dropna(subset=[col_data_e, col_tipo_p])
     
-    # Garante que a coluna de data seja lida corretamente e ignora erros (como textos ou anos inválidos)
+    # Converte a coluna para data de forma segura, ignorando textos inválidos
     df[col_data_e] = pd.to_datetime(df[col_data_e], errors='coerce')
-    df = df.dropna(subset=[col_data_e]) # Remove o que não virou data válida
+    df = df.dropna(subset=[col_data_e]) 
     
-    # Filtra anos realistas para eliminar o fantasma de 1970
+    # Filtra anos realistas para eliminar o ano fantasma de 1970
     df = df[df[col_data_e].dt.year >= 2020]
     
     # REGRA GERAL: Considerar apenas o que estiver 'Conciliado'
@@ -55,15 +54,15 @@ def carregar_dados():
 try:
     df_base, col_data_e, col_valor_m, col_grupos_n, col_tipo_p, col_vendedor = carregar_dados()
 except Exception as e:
-    st.error(f"Erro ao mapear as colunas do Excel: {e}")
-    st.info("Verifique se as colunas 'Data de Pagamento', 'Valor', 'Grupos' (ou Grupo) e 'Tipo' existem com esses nomes.")
+    st.error(f"Erro crítico ao ler as colunas: {e}")
+    st.info("Verifique se os nomes das colunas na sua planilha mudaram recentemente.")
     st.stop()
 
 # 3. BARRA LATERAL (MENU SUSPENSO)
 st.sidebar.image("Logo horizontal-fundo.png", use_container_width=True)
 st.sidebar.markdown("### FILTROS DE ANÁLISE")
 
-# Ordenação estritamente cronológica dos meses válidos
+# Ordenação cronológica dos meses válidos
 df_ordenado = df_base.sort_values('ano_mes_num')
 meses_disponiveis = df_ordenado['ano_mes_texto'].unique().tolist()
 
@@ -84,7 +83,7 @@ st.markdown(f"#### Análise de Resultado de Caixa: **Conectsol Engenharia** | Pe
 st.markdown("---")
 
 
-# 5. PROCESSAMENTO DE ENTRADAS E SAÍDAS (CRITÉRIOS ESTRITOS)
+# 5. PROCESSAMENTO DE ENTRADAS E SAÍDAS
 df_filtrado['tipo_busca'] = df_filtrado[col_tipo_p].astype(str).str.lower().str.strip()
 
 # REGRA: Entrada = apenas o que for exatamente 'venda'
@@ -114,7 +113,6 @@ graf1, graf2 = st.columns(2)
 
 with graf1:
     st.markdown("### 🍕 Saídas por Grupo")
-    # Agrupamento na coluna N (Grupos) usando apenas os dados de Saídas
     df_saidas_grupo = df_saidas.groupby(col_grupos_n)[col_valor_m].sum().reset_index()
     df_saidas_grupo[col_valor_m] = pd.to_numeric(df_saidas_grupo[col_valor_m], errors='coerce')
     df_saidas_grupo = df_saidas_grupo[df_saidas_grupo[col_valor_m] > 0]
@@ -134,7 +132,6 @@ with graf1:
 
 with graf2:
     st.markdown("### 📊 Desempenho de Entradas por Vendedor")
-    # Agrupamento usando apenas a base de Entradas (Vendas)
     df_vendas = df_entradas.groupby(col_vendedor)[col_valor_m].sum().reset_index()
     df_vendas[col_valor_m] = pd.to_numeric(df_vendas[col_valor_m], errors='coerce')
     df_vendas = df_vendas[df_vendas[col_valor_m] > 0]

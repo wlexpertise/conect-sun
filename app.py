@@ -3,60 +3,52 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-# Configuração da página
-st.set_page_config(page_title="WL Expertise | Conectsol BI", layout="wide")
+# Configuração e Estilos (O SEU LAYOUT ORIGINAL)
+st.set_page_config(page_title="WL Expertise | Conectsol BI", layout="wide", initial_sidebar_state="expanded")
+st.markdown("""<style>.stApp { background-color: #f3f4f6 !important; } .logo-box { background-color: #ffffff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); text-align: center; margin-bottom: 10px; }</style>""", unsafe_allow_html=True)
 
+# Função de carga sem filtros restritivos globais
 @st.cache_data
 def carregar_dados():
-    try:
-        df = pd.read_excel('dados_conectsol.xlsx')
-        df.columns = df.columns.str.strip()
-        
-        # Validação básica de colunas
-        if len(df.columns) < 16:
-            st.error("Erro: A planilha parece não ter o número esperado de colunas.")
-            return None, None, None, None, None, None
-            
-        col_data_pag = df.columns[4]
-        col_contato = df.columns[7]
-        col_categoria = df.columns[10]
-        col_situacao = df.columns[11]
-        col_valor = df.columns[12]
-        col_grupo = df.columns[13]
-        col_tipo_p = df.columns[15]
-        
-        # Limpeza
-        df['situacao_limpa'] = df[col_situacao].astype(str).str.strip().str.lower()
-        df = df[df['situacao_limpa'].isin(['conciliado', 'sem conciliação'])].copy()
-        
-        df[col_valor] = pd.to_numeric(df[col_valor].astype(str).str.replace(r'[R$\s.]', '', regex=True).str.replace(',', '.'), errors='coerce').fillna(0)
-        df[col_data_pag] = pd.to_datetime(df[col_data_pag], errors='coerce')
-        df = df.dropna(subset=[col_data_pag])
-        
-        df['ano'] = df[col_data_pag].dt.year
-        df['ano_mes_texto'] = df[col_data_pag].dt.strftime('%b/%Y').str.lower()
-        
-        df['tipo_p_limpo'] = df[col_tipo_p].astype(str).str.strip().str.upper()
-        df['fluxo_limpo'] = 'outros'
-        df.loc[df['tipo_p_limpo'] == 'VENDA', 'fluxo_limpo'] = 'entrada'
-        df.loc[df['tipo_p_limpo'].isin(['CUSTO', 'DESPESA']), 'fluxo_limpo'] = 'saída'
-        
-        return df, col_data_pag, col_contato, col_categoria, col_valor, col_grupo
-    except Exception as e:
-        st.error(f"Erro ao carregar dados: {e}")
-        return None, None, None, None, None, None
-
-df_base, col_data_pag, col_contato, col_categoria, col_valor, col_grupo = carregar_dados()
-
-if df_base is not None:
-    st.sidebar.image("Logohorizontal.png", use_container_width=True)
-    pagina = st.sidebar.radio("Navegação:", ["🚀 Visão Geral (YTD)", "📈 Análise de Entradas", "📉 Detalhe de Saídas", "👥 Gestão de Sócios", "🏗️ Custos na Prestação de Serviço"])
+    df = pd.read_excel('dados_conectsol.xlsx')
+    df.columns = df.columns.str.strip()
     
-    meses = df_base.sort_values(col_data_pag)['ano_mes_texto'].unique().tolist()
-    mes_selecionado = st.sidebar.selectbox("Mês:", meses, index=len(meses)-1)
+    # Tratamento básico de colunas
+    df['valor_num'] = pd.to_numeric(df.iloc[:, 12].astype(str).str.replace(r'[R$\s.]', '', regex=True).str.replace(',', '.'), errors='coerce').fillna(0)
+    df['data_pag'] = pd.to_datetime(df.iloc[:, 4], errors='coerce', dayfirst=True)
     
-    # Restante do seu código vai aqui...
-    st.write(f"Você está na página: {pagina}")
-    st.write(f"Mês selecionado: {mes_selecionado}")
-else:
-    st.warning("Não foi possível carregar os dados. Verifique o arquivo Excel.")
+    # Criar colunas auxiliares sem filtrar o DF original
+    df['ano_mes_texto'] = df['data_pag'].dt.strftime('%b/%Y').str.lower()
+    df['grupo_limpo'] = df.iloc[:, 13].astype(str).str.upper()
+    df['fluxo'] = 'ignorar'
+    df.loc[df.iloc[:, 15].astype(str).str.upper() == 'VENDA', 'fluxo'] = 'entrada'
+    df.loc[df.iloc[:, 15].astype(str).str.upper().isin(['CUSTO', 'DESPESA']), 'fluxo'] = 'saída'
+    
+    return df
+
+df = carregar_dados()
+
+# Sidebar
+st.sidebar.image("Logohorizontal.png", use_container_width=True)
+pagina = st.sidebar.radio("Navegação:", ["🚀 Visão Geral (YTD)", "📈 Análise de Entradas", "📉 Detalhe de Saídas", "👥 Gestão de Sócios", "🏗️ Custos na Prestação de Serviço"])
+meses = df['ano_mes_texto'].unique().tolist()
+mes_selecionado = st.sidebar.selectbox("Mês:", meses, index=len(meses)-1)
+
+# Filtro local (apenas para a página atual)
+df_mes = df[df['ano_mes_texto'] == mes_selecionado]
+
+# Renderização
+if pagina == "🚀 Visão Geral (YTD)":
+    st.title("Performance Financeira")
+    ent = df_mes[df_mes['fluxo'] == 'entrada']['valor_num'].sum()
+    sai = df_mes[df_mes['fluxo'] == 'saída']['valor_num'].sum()
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Entradas", f"R$ {ent:,.2f}")
+    m2.metric("Saídas", f"R$ {sai:,.2f}")
+    m3.metric("Resultado", f"R$ {ent-sai:,.2f}")
+
+elif pagina == "👥 Gestão de Sócios":
+    st.title("Gestão de Sócios")
+    st.dataframe(df_mes[df_mes['grupo_limpo'].str.contains('SÓCIO', na=False)])
+
+# (Adicione os outros elifs aqui...)

@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 🎨 DESIGN MINIMALISTA CORPORATIVO (Fundo cinza claro unificado, sem caixas excessivas)
+# 🎨 DESIGN MINIMALISTA CORPORATIVO (Fundo cinza claro e destaque na logo do cliente)
 st.markdown("""
     <style>
         /* Fundo limpo e contínuo para o App */
@@ -31,6 +31,16 @@ st.markdown("""
         div[data-testid="stMetricValue"] > div {
             color: #0B5A60 !important;
             font-weight: 700;
+        }
+        /* Container especial para destacar a logo do cliente sobre o fundo acinzentado */
+        .logo-container {
+            background-color: #ffffff;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -90,7 +100,7 @@ st.sidebar.markdown("---")
 
 pagina = st.sidebar.radio(
     "Navegação Estratégica:", 
-    ["🚀 Visão Geral (YTD)", "📈 Análise de Receitas", "📉 Detalhe de Despesas", "👥 Gestão de Sócios", "🏗️ Custos na Prestação de Serviço"]
+    ["🚀 Visão Geral (YTD)", "📈 Análise de Entradas", "📉 Detalhe de Saídas", "👥 Gestão de Sócios", "🏗️ Custos na Prestação de Serviço"]
 )
 
 df_ordenado = df_base.sort_values('ano_mes_num')
@@ -101,16 +111,18 @@ reg_ref = df_base[df_base['ano_mes_texto'] == mes_selecionado].iloc[0]
 df_ytd = df_base[(df_base['ano'] == reg_ref['ano']) & (df_base['mes'] <= reg_ref['mes'])].copy()
 df_mes = df_base[df_base['ano_mes_texto'] == mes_selecionado].copy()
 
-# Cabeçalho integrado sem blocos brancos artificiais
+# Cabeçalho integrado com container especial em branco para destacar a logo do cliente
 header_col1, header_col2 = st.columns([4, 1])
 
 # --- PÁGINA 1: VISÃO GERAL (YTD) ---
 if pagina == "🚀 Visão Geral (YTD)":
     with header_col1:
-        st.title("Performance Financeira WL Expertise")
+        st.title("Performance Financeira ConectSol")
         st.subheader(f"Acumulado Estratégico (YTD) até {mes_selecionado.upper()}")
     with header_col2:
+        st.markdown('<div class="logo-container">', unsafe_allow_html=True)
         st.image("conectlogo.png", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         
     st.markdown("---")
     
@@ -155,14 +167,26 @@ if pagina == "🚀 Visão Geral (YTD)":
     )
     st.plotly_chart(fig_evolucao, use_container_width=True)
 
-# --- PÁGINA 2: ANÁLISE DE RECEITAS ---
-elif pagina == "📈 Análise de Receitas":
+# --- PÁGINA 2: ANÁLISE DE ENTRADAS ---
+elif pagina == "📈 Análise de Entradas":
     with header_col1:
-        st.title("Análise de Receitas por Cliente")
-        st.subheader(f"Entradas registradas na competência de {mes_selecionado.upper()}")
+        st.title("Análise de Entradas por Cliente")
+        st.subheader(f"Competência de Referência: {mes_selecionado.upper()}")
     with header_col2:
+        st.markdown('<div class="logo-container">', unsafe_allow_html=True)
         st.image("conectlogo.png", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         
+    st.markdown("---")
+    
+    # Adicionando os cards de Visão Mensal e YTD de Entradas
+    ent_mes_total = df_mes[df_mes['fluxo_limpo'] == 'entrada'][col_valor].sum()
+    ent_ytd_total = df_ytd[df_ytd['fluxo_limpo'] == 'entrada'][col_valor].sum()
+    
+    mc1, mc2 = st.columns(2)
+    mc1.metric(f"💰 Total Entradas no Mês ({mes_selecionado})", formatar_brl(ent_mes_total))
+    mc2.metric("🚀 Total Entradas Acumulado (YTD)", formatar_brl(ent_ytd_total))
+    
     st.markdown("---")
     
     df_cli = df_mes[df_mes['fluxo_limpo'] == 'entrada'].groupby(col_contato)[col_valor].sum().reset_index()
@@ -180,37 +204,44 @@ elif pagina == "📈 Análise de Receitas":
     else:
         st.info("Nenhuma entrada registrada para este mês.")
 
-# --- PÁGINA 3: DETALHE DE DESPESAS ---
-elif pagina == "📉 Detalhe de Despesas":
+# --- PÁGINA 3: DETALHE DE SAÍDAS ---
+elif pagina == "📉 Detalhe de Saídas":
     with header_col1:
-        st.title("Distribuição de Despesas Operacionais")
-        st.subheader(f"Estrutura de saídas analíticas para a competência de {mes_selecionado.upper()}")
+        st.title("Distribuição de Saídas Estratégicas")
+        st.subheader(f"Competência de Referência: {mes_selecionado.upper()}")
     with header_col2:
+        st.markdown('<div class="logo-container">', unsafe_allow_html=True)
         st.image("conectlogo.png", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         
     st.markdown("---")
     
-    grupos_saidas = ["Todos"] + df_mes[df_mes['fluxo_limpo'] == 'saída'][col_grupo].dropna().unique().tolist()
-    grupo_escolhido = st.selectbox("Filtrar por Grupo de Custo da Empresa:", options=grupos_saidas)
+    # Adicionando os cards de Visão Mensal e YTD de Saídas
+    sai_mes_total = df_mes[df_mes['fluxo_limpo'] == 'saída'][col_valor].sum()
+    sai_ytd_total = df_ytd[df_ytd['fluxo_limpo'] == 'saída'][col_valor].sum()
     
-    df_saidas_f = df_mes[df_mes['fluxo_limpo'] == 'saída']
-    if grupo_escolhido != "Todos":
-        df_saidas_f = df_saidas_f[df_saidas_f[col_grupo] == grupo_escolhido]
-        
-    df_cat = df_saidas_f.groupby(col_categoria)[col_valor].sum().reset_index()
-    df_cat = df_cat.sort_values(col_valor, ascending=True)
+    sc1, sc2 = st.columns(2)
+    sc1.metric(f"💸 Total Saídas no Mês ({mes_selecionado})", formatar_brl(sai_mes_total))
+    sc2.metric("📉 Total Saídas Acumulado (YTD)", formatar_brl(sai_ytd_total))
     
-    if not df_cat.empty:
-        textos_cat = [formatar_brl(val) for val in df_cat[col_valor]]
-        fig_cat = px.bar(
-            df_cat, x=col_valor, y=col_categoria, orientation='h',
-            template="plotly_white", labels={col_categoria: 'Categoria de Despesa', col_valor: 'Total Gasto'}
+    st.markdown("---")
+    
+    # Gráfico agrupado por Grupo (Coluna N) ordenado do maior para o menor
+    df_saidas_m = df_mes[df_mes['fluxo_limpo'] == 'saída']
+    df_grp = df_saidas_m.groupby(col_grupo)[col_valor].sum().reset_index()
+    df_grp = df_grp.sort_values(col_valor, ascending=True) # Ascending True para o bar h posicionar o maior no topo
+    
+    if not df_grp.empty:
+        textos_grp = [formatar_brl(val) for val in df_grp[col_valor]]
+        fig_grp = px.bar(
+            df_grp, x=col_valor, y=col_grupo, orientation='h',
+            template="plotly_white", labels={col_grupo: 'Grupo de Custo (Coluna N)', col_valor: 'Total Gasto'}
         )
-        fig_cat.update_traces(marker_color='#13A3B5', text=textos_cat, textposition='auto')
-        fig_cat.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis={'categoryorder':'total ascending'})
-        st.plotly_chart(fig_cat, use_container_width=True)
+        fig_grp.update_traces(marker_color='#13A3B5', text=textos_grp, textposition='auto')
+        fig_grp.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis={'categoryorder':'total ascending'})
+        st.plotly_chart(fig_grp, use_container_width=True)
     else:
-        st.info("Nenhuma saída mapeada para os critérios atuais.")
+        st.info("Nenhuma saída registrada para esta competência.")
 
 # --- PÁGINA 4: GESTÃO DE SÓCIOS ---
 elif pagina == "👥 Gestão de Sócios":
@@ -218,7 +249,9 @@ elif pagina == "👥 Gestão de Sócios":
         st.title("Controle de Retiradas de Sócios")
         st.subheader(f"Auditoria de retiradas e despesas compartilhadas em {mes_selecionado.upper()}")
     with header_col2:
+        st.markdown('<div class="logo-container">', unsafe_allow_html=True)
         st.image("conectlogo.png", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         
     st.markdown("---")
     
@@ -259,7 +292,9 @@ elif pagina == "🏗️ Custos na Prestação de Serviço":
         st.title("Análise de Custos na Prestação de Serviço")
         st.subheader(f"Acompanhamento analítico dos custos diretos em {mes_selecionado.upper()}")
     with header_col2:
+        st.markdown('<div class="logo-container">', unsafe_allow_html=True)
         st.image("conectlogo.png", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         
     st.markdown("---")
     
@@ -267,7 +302,12 @@ elif pagina == "🏗️ Custos na Prestação de Serviço":
     
     if not df_insumos.empty:
         total_insumos = df_insumos[col_valor].sum()
-        st.metric("Gasto Total Consolidado", formatar_brl(total_insumos))
+        
+        # Card com o total do mês selecionado solicitado
+        cc1, cc2 = st.columns(2)
+        cc1.metric(f"🏗️ Custos no Mês ({mes_selecionado})", formatar_brl(total_insumos))
+        
+        st.markdown("---")
         
         df_ins_cat = df_insumos.groupby(col_categoria)[col_valor].sum().reset_index().sort_values(col_valor, ascending=True)
         textos_ins = [formatar_brl(val) for val in df_ins_cat[col_valor]]

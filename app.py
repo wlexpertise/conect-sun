@@ -58,6 +58,7 @@ def carregar_dados():
     col_grupo = df.columns[13]
     col_tipo_p = df.columns[15]
     
+    # Filtro apenas de Situação (Conciliado/Sem conciliação)
     df['situacao_limpa'] = df[col_situacao].astype(str).str.strip().str.lower()
     df = df[df['situacao_limpa'].isin(['conciliado', 'sem conciliação'])].copy()
     
@@ -75,24 +76,20 @@ def carregar_dados():
     df['mes_nome_pt'] = df['mes'].map(meses_pt)
     df['ano_mes_texto'] = df['mes_nome_pt'] + '/' + df['ano'].astype(str)
     
+    # Mapeamento do tipo de fluxo (sem filtrar o DF ainda)
     df['tipo_p_limpo'] = df[col_tipo_p].astype(str).str.strip().str.upper()
-    df['fluxo_limpo'] = 'ignorar'
+    df['fluxo_limpo'] = 'outros'
     df.loc[df['tipo_p_limpo'] == 'VENDA', 'fluxo_limpo'] = 'entrada'
     df.loc[df['tipo_p_limpo'].isin(['CUSTO', 'DESPESA']), 'fluxo_limpo'] = 'saída'
-    
-    df = df[df['fluxo_limpo'].isin(['entrada', 'saída'])].copy()
     
     return df, col_data_pag, col_contato, col_categoria, col_valor, col_grupo
 
 df_base, col_data_pag, col_contato, col_categoria, col_valor, col_grupo = carregar_dados()
 
+# Sidebar
 st.sidebar.image("Logohorizontal.png", use_container_width=True)
 st.sidebar.markdown("---")
-
-pagina = st.sidebar.radio(
-    "Navegação Estratégica:", 
-    ["🚀 Visão Geral (YTD)", "📈 Análise de Entradas", "📉 Detalhe de Saídas", "👥 Gestão de Sócios", "🏗️ Custos na Prestação de Serviço"]
-)
+pagina = st.sidebar.radio("Navegação Estratégica:", ["🚀 Visão Geral (YTD)", "📈 Análise de Entradas", "📉 Detalhe de Saídas", "👥 Gestão de Sócios", "🏗️ Custos na Prestação de Serviço"])
 
 df_ordenado = df_base.sort_values('ano_mes_num')
 meses_disponiveis = df_ordenado['ano_mes_texto'].unique().tolist()
@@ -102,9 +99,9 @@ reg_ref = df_base[df_base['ano_mes_texto'] == mes_selecionado].iloc[0]
 df_ytd = df_base[(df_base['ano'] == reg_ref['ano']) & (df_base['mes'] <= reg_ref['mes'])].copy()
 df_mes = df_base[df_base['ano_mes_texto'] == mes_selecionado].copy()
 
+# Renderização
 header_col1, header_col2 = st.columns([4, 1])
 
-# --- PÁGINA 1: VISÃO GERAL (YTD) ---
 if pagina == "🚀 Visão Geral (YTD)":
     with header_col1:
         st.title("Performance Financeira ConectSol")
@@ -118,7 +115,6 @@ if pagina == "🚀 Visão Geral (YTD)":
     ent_mes = df_mes[df_mes['fluxo_limpo'] == 'entrada'][col_valor].sum()
     sai_mes = df_mes[df_mes['fluxo_limpo'] == 'saída'][col_valor].sum()
     res_mes = ent_mes - sai_mes
-    
     m1, m2, m3 = st.columns(3)
     m1.metric(f"💰 Entradas {mes_selecionado}", formatar_brl(ent_mes))
     m2.metric(f"💸 Saídas {mes_selecionado}", formatar_brl(sai_mes))
@@ -130,7 +126,6 @@ if pagina == "🚀 Visão Geral (YTD)":
     sai_ytd = df_ytd[df_ytd['fluxo_limpo'] == 'saída'][col_valor].sum()
     res_ytd = ent_ytd - sai_ytd
     margem_val = (res_ytd / ent_ytd * 100) if ent_ytd > 0 else 0
-    
     c1, c2, c3 = st.columns(3)
     c1.metric("📈 Entradas YTD", formatar_brl(ent_ytd))
     c2.metric("📉 Saídas YTD", formatar_brl(sai_ytd))
@@ -150,12 +145,9 @@ if pagina == "🚀 Visão Geral (YTD)":
     
     textos_grafico = [formatar_brl(val) for val in df_hist['Resultado']]
     fig_evolucao = go.Figure()
-    fig_evolucao.add_trace(go.Bar(
-        x=df_hist['ano_mes_texto'], y=df_hist['Resultado'],
-        marker_color=['#ef4444' if value < 0 else '#28B260' for value in df_hist['Resultado']],
-        text=textos_grafico, textposition='auto'
-    ))
+    fig_evolucao.add_trace(go.Bar(x=df_hist['ano_mes_texto'], y=df_hist['Resultado'], marker_color=['#ef4444' if value < 0 else '#28B260' for value in df_hist['Resultado']], text=textos_grafico, textposition='auto'))
     fig_evolucao.update_layout(template="plotly_white", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(t=25, b=15))
     st.plotly_chart(fig_evolucao, use_container_width=True)
 
-# ... [Manter o restante das páginas inalterado]
+# As outras páginas (elif) podem ser mantidas exatamente como no seu original, 
+# pois agora elas têm acesso ao df_base completo.

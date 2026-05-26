@@ -71,21 +71,24 @@ def carregar_dados():
     df = pd.read_excel(nome_do_arquivo)
     df.columns = df.columns.str.strip()
     
-    col_tipo_fluxo = df.columns[2]     # Tipo (Entrada/Saída)
-    col_data_pag = df.columns[4]       # Data de pagamento
+    col_data_pag = df.columns[4]       # Data de pagamento (E)
     col_contato = df.columns[7]        # Contato (H) - Sócios/Clientes
-    col_categoria = df.columns[10]     # Categoria
-    col_situacao = df.columns[11]      # Situação (Coluna L/M conforme mapeamento)
-    col_valor = df.columns[12]         # Valor
-    col_grupo = df.columns[13]         # Grupo
+    col_categoria = df.columns[10]     # Categoria (K)
+    col_situacao = df.columns[11]      # Situação (L)
+    col_valor = df.columns[12]         # Valor (M)
+    col_grupo = df.columns[13]         # Grupo (N)
+    col_tipo_p = df.columns[15]        # 🎯 Coluna P (16ª coluna, índice 15) - Tipo real para batimento
     
-    # 🔄 ALTERAÇÃO DA REGRA DE NEGÓCIO: Agora considera tanto 'conciliado' quanto 'sem conciliação'
+    # Filtrar situações válidas conforme combinado
     df['situacao_limpa'] = df[col_situacao].astype(str).str.strip().str.lower()
     df = df[df['situacao_limpa'].isin(['conciliado', 'sem conciliação'])].copy()
     
+    # Tratamento da coluna de valores
     if df[col_valor].dtype == object:
         df[col_valor] = df[col_valor].astype(str).str.replace('R$', '', regex=False).str.replace('.', '', regex=False).str.replace(',', '.', regex=False).str.strip()
     df[col_valor] = pd.to_numeric(df[col_valor], errors='coerce').fillna(0)
+    
+    # Tratamento de datas
     df[col_data_pag] = pd.to_datetime(df[col_data_pag], errors='coerce', dayfirst=True)
     df = df.dropna(subset=[col_data_pag])
     
@@ -95,7 +98,16 @@ def carregar_dados():
     meses_pt = {1: 'jan', 2: 'fev', 3: 'mar', 4: 'abr', 5: 'mai', 6: 'jun', 7: 'jul', 8: 'ago', 9: 'set', 10: 'out', 11: 'nov', 12: 'dez'}
     df['mes_nome_pt'] = df['mes'].map(meses_pt)
     df['ano_mes_texto'] = df['mes_nome_pt'] + '/' + df['ano'].astype(str)
-    df['fluxo_limpo'] = df[col_tipo_fluxo].astype(str).str.strip().str.lower()
+    
+    # 🔄 DEFINIÇÃO DO FLUXO PELA COLUNA P
+    df['tipo_p_limpo'] = df[col_tipo_p].astype(str).str.strip().str.upper()
+    
+    df['fluxo_limpo'] = 'ignorar'
+    df.loc[df['tipo_p_limpo'] == 'VENDA', 'fluxo_limpo'] = 'entrada'
+    df.loc[df['tipo_p_limpo'].isin(['CUSTO', 'DESPESA']), 'fluxo_limpo'] = 'saída'
+    
+    # Filtrar para manter apenas o que é Entrada ou Saída real mapeada
+    df = df[df['fluxo_limpo'].isin(['entrada', 'saída'])].copy()
     
     return df, col_data_pag, col_contato, col_categoria, col_valor, col_grupo
 

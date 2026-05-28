@@ -52,6 +52,28 @@ def formatar_pct(valor):
         return f"({abs(valor):.1f}%)".replace(".", ",")
     return f"{valor:.1f}%".replace(".", ",")
 
+def formatar_k(valor):
+    """Formatador de alta performance para rótulos de gráficos (Ex: R$ 150K)"""
+    if valor is None or pd.isna(valor) or valor == 0:
+        return ""
+    prefixo = "R$ "
+    v_abs = abs(valor)
+    
+    if v_abs >= 1000:
+        v_k = v_abs / 1000
+        if v_k.is_integer():
+            texto = f"{v_k:,.0f}K"
+        else:
+            texto = f"{v_k:,.1f}K"
+    else:
+        texto = f"{v_abs:,.0f}"
+        
+    texto = texto.replace(",", "X").replace(".", ",").replace("X", ".")
+    
+    if valor < 0:
+        return f"({prefixo}{texto})"
+    return f"{prefixo}{texto}"
+
 @st.cache_data
 def carregar_dados():
     nome_do_arquivo = 'dados_conectsol.xlsx' 
@@ -191,7 +213,7 @@ if pagina == "🚀 Visão Geral (YTD)":
     df_hist['Resultado'] = df_hist['entrada'] - df_hist['saída']
     df_hist = df_hist.sort_values('ano_mes_num')
     
-    textos_grafico = [formatar_brl(val) for val in df_hist['Resultado']]
+    textos_grafico = [formatar_k(val) for val in df_hist['Resultado']]
     
     fig_evolucao = go.Figure()
     fig_evolucao.add_trace(go.Bar(
@@ -229,7 +251,7 @@ elif pagina == "📈 Análise de Entradas":
     df_cli = df_cli.sort_values(col_valor, ascending=True).tail(12)
     
     if not df_cli.empty:
-        textos_cli = [formatar_brl(val) for val in df_cli[col_valor]]
+        textos_cli = [formatar_k(val) for val in df_cli[col_valor]]
         fig_cli = px.bar(
             df_cli, x=col_valor, y=col_contato, orientation='h', 
             template="plotly_white", labels={col_contato: 'Cliente / Origem', col_valor: 'Valor Recebido'}
@@ -262,7 +284,7 @@ elif pagina == "📉 Detalhe de Saídas":
     df_grp = df_grp.sort_values(col_valor, ascending=True)
     
     if not df_grp.empty:
-        textos_grp = [formatar_brl(val) for val in df_grp[col_valor]]
+        textos_grp = [formatar_k(val) for val in df_grp[col_valor]]
         fig_grp = px.bar(
             df_grp, x=col_valor, y=col_grupo, orientation='h',
             template="plotly_white", labels={col_grupo: 'Grupo de Custo', col_valor: 'Total Gasto'}
@@ -290,7 +312,7 @@ elif pagina == "👥 Gestão de Sócios":
     
     if not df_socios_mes.empty:
         df_soc_agrupado = df_socios_mes.groupby(col_contato)[col_valor].sum().reset_index().sort_values(by=col_valor, ascending=False)
-        textos_soc_bars = [formatar_brl(val) for val in df_soc_agrupado[col_valor]]
+        textos_soc_bars = [formatar_k(val) for val in df_soc_agrupado[col_valor]]
         
         fig_soc_vert = px.bar(
             df_soc_agrupado, x=col_contato, y=col_valor, template="plotly_white",
@@ -343,7 +365,7 @@ elif pagina == "🏗️ Custos na Prestação de Serviço":
     
     if not df_insumos_mes.empty:
         df_ins_cat = df_insumos_mes.groupby(col_categoria)[col_valor].sum().reset_index().sort_values(col_valor, ascending=True)
-        textos_ins = [formatar_brl(val) for val in df_ins_cat[col_valor]]
+        textos_ins = [formatar_k(val) for val in df_ins_cat[col_valor]]
         
         fig_ins = px.bar(
             df_ins_cat, x=col_valor, y=col_categoria, orientation='h', 
@@ -360,7 +382,7 @@ elif pagina == "🏗️ Custos na Prestação de Serviço":
     else:
         st.info("Nenhuma despesa de 'Custos na Prestação de Serviço' registrada para esta competência.")
 
-# --- PÁGINA 6: ANÁLISES AVANÇADAS (YoY - SEM ERROS) ---
+# --- PÁGINA 6: ANÁLISES AVANÇADAS ---
 elif pagina == "🔬 Análises Avançadas":
     with header_col1:
         st.title("Análises Avançadas Interanuais")
@@ -425,11 +447,11 @@ elif pagina == "🔬 Análises Avançadas":
         fig_vg_yoy = go.Figure()
         fig_vg_yoy.add_trace(go.Bar(
             x=df_comp['mes_nome'].str.upper(), y=v2025, name='Ano 2025', marker_color=c_2025,
-            text=[formatar_brl(x) if x != 0 else "" for x in v2025], textposition='auto'
+            text=[formatar_k(x) for x in v2025], textposition='auto'
         ))
         fig_vg_yoy.add_trace(go.Bar(
             x=df_comp['mes_nome'].str.upper(), y=v2026, name='Ano 2026', marker_color=c_2026,
-            text=[formatar_brl(x) if x != 0 else "" for x in v2026], textposition='auto'
+            text=[formatar_k(x) for x in v2026], textposition='auto'
         ))
         
         fig_vg_yoy.add_trace(go.Scatter(
@@ -488,11 +510,11 @@ elif pagina == "🔬 Análises Avançadas":
                 
             fig_soc_yoy.add_trace(go.Bar(
                 x=df_soc_comp['mes_nome'].str.upper(), y=v25, name='2025', marker_color='#94A3B8',
-                text=[formatar_brl(x) if x != 0 else "" for x in v25], textposition='auto'
+                text=[formatar_k(x) for x in v25], textposition='auto'
             ))
             fig_soc_yoy.add_trace(go.Bar(
                 x=df_soc_comp['mes_nome'].str.upper(), y=v26, name='2026', marker_color='#0B5A60',
-                text=[formatar_brl(x) if x != 0 else "" for x in v26], textposition='auto'
+                text=[formatar_k(x) for x in v26], textposition='auto'
             ))
             fig_soc_yoy.update_layout(
                 title=tit_s, barmode='group', template='plotly_white',
@@ -539,11 +561,11 @@ elif pagina == "🔬 Análises Avançadas":
                 
             fig_custos_yoy.add_trace(go.Bar(
                 x=df_custos_comp['mes_nome'].str.upper(), y=v25_c, name='2025', marker_color='#FCA5A5',
-                text=[formatar_brl(x) if x != 0 else "" for x in v25_c], textposition='auto'
+                text=[formatar_k(x) for x in v25_c], textposition='auto'
             ))
             fig_custos_yoy.add_trace(go.Bar(
                 x=df_custos_comp['mes_nome'].str.upper(), y=v26_c, name='2026', marker_color='#13A3B5',
-                text=[formatar_brl(x) if x != 0 else "" for x in v26_c], textposition='auto'
+                text=[formatar_k(x) for x in v26_c], textposition='auto'
             ))
             fig_custos_yoy.update_layout(
                 title=tit_c, barmode='group', template='plotly_white',

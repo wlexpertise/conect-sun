@@ -219,12 +219,12 @@ if pagina == "🚀 Visão Geral (YTD)":
         text=textos_grafico, 
         textposition='auto'
     ))
-    fig_evolucao.update_traces(textangle=0) # Força texto na horizontal
+    fig_evolucao.update_traces(textangle=0)
     fig_evolucao.update_layout(
         template="plotly_white", 
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         margin=dict(t=25, b=15),
-        bargap=0.15 # Colunas mais robustas
+        bargap=0.15
     )
     st.plotly_chart(fig_evolucao, use_container_width=True)
 
@@ -417,21 +417,34 @@ elif pagina == "🔬 Análises Avançadas":
         df_comp = pd.merge(df_calendario, df_2025, on='mes', how='left').fillna(0)
         df_comp = pd.merge(df_comp, df_2026, on='mes', how='left', suffixes=('_2025', '_2026')).fillna(0)
         
+        # Consolidação do Acumulado (Anexo na 13ª Coluna)
+        t_ent_25, t_sai_25, t_res_25 = df_comp['entrada_2025'].sum(), df_comp['saída_2025'].sum(), df_comp['resultado_2025'].sum()
+        t_ent_26, t_sai_26, t_res_26 = df_comp['entrada_2026'].sum(), df_comp['saída_2026'].sum(), df_comp['resultado_2026'].sum()
+        
+        df_comp = pd.concat([
+            df_comp,
+            pd.DataFrame([{
+                'mes': 13, 'mes_nome': 'ACUM.',
+                'entrada_2025': t_ent_25, 'saída_2025': t_sai_25, 'resultado_2025': t_res_25,
+                'entrada_2026': t_ent_26, 'saída_2026': t_sai_26, 'resultado_2026': t_res_26
+            }])
+        ], ignore_index=True)
+        
         if metrica_yoy == "Entradas":
             v2025 = df_comp['entrada_2025']
             v2026 = df_comp['entrada_2026']
             c_2025, c_2026 = '#A3D9E2', '#0B5A60'
-            label_tit = "Comparativo Mensal de Entradas"
+            label_tit = "Comparativo Mensal e Acumulado de Entradas"
         elif metrica_yoy == "Saídas":
             v2025 = df_comp['saída_2025']
             v2026 = df_comp['saída_2026']
             c_2025, c_2026 = '#FCA5A5', '#EF4444'
-            label_tit = "Comparativo Mensal de Saídas"
+            label_tit = "Comparativo Mensal e Acumulado de Saídas"
         else:
             v2025 = df_comp['resultado_2025']
             v2026 = df_comp['resultado_2026']
             c_2025, c_2026 = '#93C5FD', '#1D4ED8'
-            label_tit = "Comparativo Mensal do Resultado Líquido"
+            label_tit = "Comparativo Mensal e Acumulado do Resultado Líquido"
             
         var_pct = []
         for r25, r26 in zip(v2025, v2026):
@@ -452,19 +465,26 @@ elif pagina == "🔬 Análises Avançadas":
             text=[formatar_k(x) for x in v2026], textposition='auto'
         ))
         
+        # Linha de tendência apenas para a evolução dos meses (Exclui salto do ACUM.)
         fig_vg_yoy.add_trace(go.Scatter(
-            x=df_comp['mes_nome'].str.upper(), y=v2026, mode='lines+markers+text',
-            name='Variação %', line=dict(color='#F59E0B', width=3, dash='dot'),
+            x=df_comp['mes_nome'].str.upper().iloc[:12], y=v2026.iloc[:12], mode='lines+markers',
+            name='Tendência 2026', line=dict(color='#F59E0B', width=2, dash='dot'), showlegend=False
+        ))
+        
+        # Indicadores de Crescimento % flutuando sobre todas as colunas (Incluindo o ACUM.)
+        fig_vg_yoy.add_trace(go.Scatter(
+            x=df_comp['mes_nome'].str.upper(), y=v2026, mode='text',
+            name='Variação %',
             text=[f"{' ' if v < 0 else '+'}{v:.1f}%" if v != 0 else "" for v in var_pct],
             textposition='top center'
         ))
         
-        fig_vg_yoy.update_traces(selector=dict(type='bar'), textangle=0) # Força texto horizontal nas barras
+        fig_vg_yoy.update_traces(selector=dict(type='bar'), textangle=0)
         fig_vg_yoy.update_layout(
             title=label_tit, barmode='group', template='plotly_white',
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             margin=dict(t=40, b=15), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            bargap=0.15, bargroupgap=0.05 # Força colunas robustas agrupadas
+            bargap=0.15, bargroupgap=0.05
         )
         st.plotly_chart(fig_vg_yoy, use_container_width=True)
         
@@ -495,19 +515,18 @@ elif pagina == "🔬 Análises Avançadas":
             if 2026 not in df_soc_m.columns: df_soc_m[2026] = 0.0
             
             df_soc_comp = pd.merge(df_calendario, df_soc_m, on='mes', how='left').fillna(0)
-            df_soc_comp['acum_2025'] = df_soc_comp[2025].cumsum()
-            df_soc_comp['acum_2026'] = df_soc_comp[2026].cumsum()
             
-            visao_socio = st.radio("Selecione o tipo de visão:", ["Visão Mensal", "Visão Acumulada (YTD)"], horizontal=True)
+            # Anexa o acumulado total no final da tabela/gráfico
+            t_soc_25, t_soc_26 = df_soc_comp[2025].sum(), df_soc_comp[2026].sum()
+            df_soc_comp = pd.concat([
+                df_soc_comp,
+                pd.DataFrame([{'mes': 13, 'mes_nome': 'ACUM.', 2025: t_soc_25, 2026: t_soc_26}])
+            ], ignore_index=True)
             
-            fig_soc_yoy = go.Figure()
-            if visao_socio == "Visão Mensal":
-                v25, v26 = df_soc_comp[2025], df_soc_comp[2026]
-                tit_s = f"Retiradas Mensais — {socio_sel_yoy}"
-            else:
-                v25, v26 = df_soc_comp['acum_2025'], df_soc_comp['acum_2026']
-                tit_s = f"Evolução Acumulada (YTD) — {socio_sel_yoy}"
+            v25, v26 = df_soc_comp[2025], df_soc_comp[2026]
+            tit_s = f"Retiradas Mensais e Total Acumulado Anual — {socio_sel_yoy}"
                 
+            fig_soc_yoy = go.Figure()
             fig_soc_yoy.add_trace(go.Bar(
                 x=df_soc_comp['mes_nome'].str.upper(), y=v25, name='2025', marker_color='#94A3B8',
                 text=[formatar_k(x) for x in v25], textposition='auto'
@@ -525,11 +544,9 @@ elif pagina == "🔬 Análises Avançadas":
             st.plotly_chart(fig_soc_yoy, use_container_width=True)
             
             df_tab_soc = pd.DataFrame({
-                'Mês': df_soc_comp['mes_nome'].str.upper(),
-                'Mensal 2025': df_soc_comp[2025].apply(formatar_brl),
-                'Mensal 2026': df_soc_comp[2026].apply(formatar_brl),
-                'Acumulado 2025': df_soc_comp['acum_2025'].apply(formatar_brl),
-                'Acumulado 2026': df_soc_comp['acum_2026'].apply(formatar_brl)
+                'Mês / Referência': df_soc_comp['mes_nome'].str.upper(),
+                'Realizado 2025': df_soc_comp[2025].apply(formatar_brl),
+                'Realizado 2026': df_soc_comp[2026].apply(formatar_brl)
             })
             st.dataframe(df_tab_soc, use_container_width=True)
         else:
@@ -548,19 +565,18 @@ elif pagina == "🔬 Análises Avançadas":
             if 2026 not in df_custos_m.columns: df_custos_m[2026] = 0.0
             
             df_custos_comp = pd.merge(df_calendario, df_custos_m, on='mes', how='left').fillna(0)
-            df_custos_comp['acum_2025'] = df_custos_comp[2025].cumsum()
-            df_custos_comp['acum_2026'] = df_custos_comp[2026].cumsum()
             
-            visao_custos = st.radio("Selecione o tipo de visão:", ["Mensal ", "Acumulado (YTD) "], horizontal=True)
+            # Anexa o acumulado total no final da tabela/gráfico
+            t_custos_25, t_custos_26 = df_custos_comp[2025].sum(), df_custos_comp[2026].sum()
+            df_custos_comp = pd.concat([
+                df_custos_comp,
+                pd.DataFrame([{'mes': 13, 'mes_nome': 'ACUM.', 2025: t_custos_25, 2026: t_custos_26}])
+            ], ignore_index=True)
             
-            fig_custos_yoy = go.Figure()
-            if visao_custos == "Mensal ":
-                v25_c, v26_c = df_custos_comp[2025], df_custos_comp[2026]
-                tit_c = "Custos Mensais Globais na Prestação de Serviço"
-            else:
-                v25_c, v26_c = df_custos_comp['acum_2025'], df_custos_comp['acum_2026']
-                tit_c = "Evolução do Custo Acumulado (YTD) na Prestação de Serviço"
+            v25_c, v26_c = df_custos_comp[2025], df_custos_comp[2026]
+            tit_c = "Custos na Prestação de Serviço — Mensalidades e Acumulado do Ano"
                 
+            fig_custos_yoy = go.Figure()
             fig_custos_yoy.add_trace(go.Bar(
                 x=df_custos_comp['mes_nome'].str.upper(), y=v25_c, name='2025', marker_color='#FCA5A5',
                 text=[formatar_k(x) for x in v25_c], textposition='auto'
@@ -578,11 +594,9 @@ elif pagina == "🔬 Análises Avançadas":
             st.plotly_chart(fig_custos_yoy, use_container_width=True)
             
             df_tab_custos = pd.DataFrame({
-                'Mês': df_custos_comp['mes_nome'].str.upper(),
-                'Custos 2025': df_custos_comp[2025].apply(formatar_brl),
-                'Custos 2026': df_custos_comp[2026].apply(formatar_brl),
-                'Acumulado 2025': df_custos_comp['acum_2025'].apply(formatar_brl),
-                'Acumulado 2026': df_custos_comp['acum_2026'].apply(formatar_brl)
+                'Mês / Referência': df_custos_comp['mes_nome'].str.upper(),
+                'Realizado 2025': df_custos_comp[2025].apply(formatar_brl),
+                'Realizado 2026': df_custos_comp[2026].apply(formatar_brl)
             })
             st.dataframe(df_tab_custos, use_container_width=True)
         else:

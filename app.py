@@ -66,7 +66,7 @@ def carregar_dados():
     col_grupo = df.columns[13]         # Grupo (N)
     col_tipo_p = df.columns[15]        # Coluna P - Tipo
     
-    # 🔥 FILTRO DEFINITIVO E TOLERANTE PARA SITUAÇÃO (Conciliado e Sem conciliação)
+    # FILTRO DEFINITIVO PARA SITUAÇÃO (Conciliado e Sem conciliação)
     mascara_situacao = df[col_situacao].astype(str).str.contains('conciliad|sem concilia', case=False, na=False, regex=True)
     df = df[mascara_situacao].copy()
     
@@ -91,7 +91,6 @@ def carregar_dados():
     df['tipo_p_limpo'] = df[col_tipo_p].astype(str).str.strip().str.upper()
     df['fluxo_limpo'] = 'ignorar'
     
-    # Utilizando contains para ignorar números e espaços extras antes da palavra
     df.loc[df['tipo_p_limpo'].str.contains('VENDA', na=False), 'fluxo_limpo'] = 'entrada'
     df.loc[df['tipo_p_limpo'].str.contains('CUSTO|DESPESA', na=False), 'fluxo_limpo'] = 'saída'
     
@@ -109,7 +108,14 @@ st.sidebar.markdown("---")
 
 pagina = st.sidebar.radio(
     "Navegação Estratégica:", 
-    ["🚀 Visão Geral (YTD)", "📈 Análise de Entradas", "📉 Detalhe de Saídas", "👥 Gestão de Sócios", "🏗️ Custos na Prestação de Serviço"]
+    [
+        "🚀 Visão Geral (YTD)", 
+        "📈 Análise de Entradas", 
+        "📉 Detalhe de Saídas", 
+        "👥 Gestão de Sócios", 
+        "🏗️ Custos na Prestação de Serviço",
+        "🔬 Análises Avançadas"
+    ]
 )
 
 df_ordenado = df_base.sort_values('ano_mes_num')
@@ -121,7 +127,7 @@ mes_selecionado = st.sidebar.selectbox(
     index=len(meses_disponiveis) - 1
 )
 
-# Filtros de contexto (Mês e Acumulado/YTD)
+# Filtros de contexto para as páginas padrão
 reg_ref = df_base[df_base['ano_mes_texto'] == mes_selecionado].iloc[0]
 df_ytd = df_base[(df_base['ano'] == reg_ref['ano']) & (df_base['mes'] <= reg_ref['mes'])].copy()
 df_mes = df_base[df_base['ano_mes_texto'] == mes_selecionado].copy()
@@ -158,7 +164,7 @@ if pagina == "🚀 Visão Geral (YTD)":
         st.markdown('</div>', unsafe_allow_html=True)
         
     st.markdown("---")
-    exibir_resumo_mes() # Insere os cards do mês
+    exibir_resumo_mes()
     
     ent_ytd = df_ytd[df_ytd['fluxo_limpo'] == 'entrada'][col_valor].sum()
     sai_ytd = df_ytd[df_ytd['fluxo_limpo'] == 'saída'][col_valor].sum()
@@ -213,7 +219,7 @@ elif pagina == "📈 Análise de Entradas":
         st.markdown('</div>', unsafe_allow_html=True)
         
     st.markdown("---")
-    exibir_resumo_mes() # Insere os cards do mês
+    exibir_resumo_mes()
     
     ent_ytd_total = df_ytd[df_ytd['fluxo_limpo'] == 'entrada'][col_valor].sum()
     st.metric("🚀 Total Entradas Acumulado (YTD)", formatar_brl(ent_ytd_total))
@@ -245,7 +251,7 @@ elif pagina == "📉 Detalhe de Saídas":
         st.markdown('</div>', unsafe_allow_html=True)
         
     st.markdown("---")
-    exibir_resumo_mes() # Insere os cards do mês
+    exibir_resumo_mes()
     
     sai_ytd_total = df_ytd[df_ytd['fluxo_limpo'] == 'saída'][col_valor].sum()
     st.metric("📉 Total Saídas Acumulado (YTD)", formatar_brl(sai_ytd_total))
@@ -278,7 +284,7 @@ elif pagina == "👥 Gestão de Sócios":
         st.markdown('</div>', unsafe_allow_html=True)
         
     st.markdown("---")
-    exibir_resumo_mes() # Insere os cards do mês
+    exibir_resumo_mes()
     
     df_socios_mes = df_mes[df_mes[col_grupo].str.contains('SÓCIO', na=False, case=False)].copy()
     
@@ -322,12 +328,11 @@ elif pagina == "🏗️ Custos na Prestação de Serviço":
         st.markdown('</div>', unsafe_allow_html=True)
         
     st.markdown("---")
-    # Resumo do mês retirado especificamente desta aba, conforme solicitado.
     
     df_insumos_mes = df_mes[df_mes[col_grupo].str.contains('CUSTOS NA PRESTAÇÃO DE SERVIÇO', na=False, case=False)].copy()
     total_insumos_mes = df_insumos_mes[col_valor].sum() if not df_insumos_mes.empty else 0
     
-    df_insumos_ytd = df_ytd[df_ytd[col_grupo].str.contains('CUSTOS NA PRESTAÇÃO DE SERVIÇO', na=False, case=False)].copy()
+    df_insumos_ytd = df_ytd[df_ytd[df_ytd[col_grupo].str.contains('CUSTOS NA PRESTAÇÃO DE SERVIÇO', na=False, case=False)].copy()
     total_insumos_ytd = df_insumos_ytd[col_valor].sum() if not df_insumos_ytd.empty else 0
     
     cc1, cc2 = st.columns(2)
@@ -354,3 +359,211 @@ elif pagina == "🏗️ Custos na Prestação de Serviço":
         st.dataframe(df_tabela_ins, use_container_width=True)
     else:
         st.info("Nenhuma despesa de 'Custos na Prestação de Serviço' registrada para esta competência.")
+
+# --- PÁGINA 6: ANÁLISES AVANÇADAS (NOVA PÁGINA - YoY) ---
+elif pagina == "🔬 Análises Avançadas":
+    with header_col1:
+        st.title("Análises Avançadas Interanuais")
+        st.subheader("Comparativo Ano a Ano (YoY) — 2025 vs 2026")
+    with header_col2:
+        st.markdown('<div class="logo-box">', unsafe_allow_html=True)
+        st.image("conectlogo.png", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+    st.markdown("---")
+    
+    # Criando as subpáginas em formato de Abas de Alta Performance
+    tab_visao, tab_socios, tab_custos = st.tabs([
+        "📊 Visão Geral YoY", 
+        "👥 Gestão de Sócios YoY", 
+        "🏗️ Custos na Prestação YoY"
+    ])
+    
+    # Calendário base padrão (Garante jan a dez mapeados perfeitamente)
+    meses_id = list(range(1, 13))
+    meses_nomes = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+    df_calendario = pd.DataFrame({'mes': meses_id, 'mes_nome': meses_nomes})
+
+    # --- SUBABA 1: VISÃO GERAL YOY ---
+    with tab_visao:
+        st.markdown("### 📊 Histórico de Entradas, Saídas e Resultados de Caixa")
+        
+        metrica_yoy = st.selectbox("Selecione a métrica para comparar:", ["Entradas", "Saídas", "Resultado Líquido"])
+        
+        # Agrupamento base anual e mensal
+        df_vg = df_base.groupby(['ano', 'mes', 'fluxo_limpo'])[col_valor].sum().unstack(fill_value=0).reset_index()
+        df_vg['resultado'] = df_vg['entrada'] - df_vg['saída']
+        
+        df_2025 = df_vg[df_vg['ano'] == 2025].copy()
+        df_2026 = df_vg[df_vg['ano'] == 2026].copy()
+        
+        df_comp = pd.merge(df_calendario, df_2025, on='mes', how='left').fillna(0)
+        df_comp = pd.merge(df_comp, df_2026, on='mes', how='left', suffixes=('_2025', '_2026')).fillna(0)
+        
+        if metrica_yoy == "Entradas":
+            v2025 = df_comp['entrada_2025']
+            v2026 = df_comp['entrada_2026']
+            c_2025, c_2026 = '#A3D9E2', '#0B5A60'
+            label_tit = "Comparativo Mensal de Entradas"
+        elif metrica_yoy == "Saídas":
+            v2025 = df_comp['saída_2025']
+            v2026 = df_comp['saída_2026']
+            c_2025, c_2026 = '#FCA5A5', '#EF4444'
+            label_tit = "Comparativo Mensal de Saídas"
+        else:
+            v2025 = df_comp['resultado_2025']
+            v2026 = df_comp['resultado_2026']
+            c_2025, c_2026 = '#93C5FD', '#1D4ED8'
+            label_tit = "Comparativo Mensal do Resultado Líquido"
+            
+        # Calcular linha de variação percentual (%)
+        var_pct = []
+        for r25, r26 in zip(v2025, v2026):
+            if r25 != 0:
+                var_pct.append(((r26 - r25) / abs(r25)) * 100)
+            elif r25 == 0 and r26 != 0:
+                var_pct.append(100.0)
+            else:
+                var_pct.append(0.0)
+                
+        fig_vg_yoy = go.Figure()
+        fig_vg_yoy.add_trace(go.Bar(
+            x=df_comp['mes_nome'].str.upper(), y=v2025, name='Ano 2025', marker_color=c_2025,
+            text=[formatar_brl(x) if x != 0 else "" for x in v2025], textposition='auto'
+        ))
+        fig_vg_yoy.add_trace(go.Bar(
+            x=df_comp['mes_nome'].str.upper(), y=v2026, name='Ano 2026', marker_color=c_2026,
+            text=[formatar_brl(x) if x != 0 else "" for x in v2026], textposition='auto'
+        ))
+        
+        # Adicionando a linha com variação percentual por cima do gráfico de barras
+        fig_vg_yoy.add_trace(go.Scatter(
+            x=df_comp['mes_nome'].str.upper(), y=v2026, mode='lines+markers+text',
+            name='Variação %', line=dict(color='#F59E0B', width=3, dash='dot'),
+            text=[f"{' ' if v < 0 else '+'}{v:.1f}%" if v != 0 else "" for v in var_pct],
+            textposition='top center'
+        ))
+        
+        fig_vg_yoy.update_layout(
+            title=label_tit, barmode='group', template='plotly_white',
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            margin=dict(t=40, b=15), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        st.plotly_chart(fig_vg_yoy, use_container_width=True)
+        
+        # Tabela de Auditoria Estratégica
+        df_exibir_vg = pd.DataFrame({
+            'Mês de Referência': df_comp['mes_nome'].str.upper(),
+            'Realizado 2025': v2025.apply(formatar_brl),
+            'Realizado 2026': v2026.apply(formatar_brl),
+            'Diferença Absoluta': (v2026 - v2025).apply(formatar_brl),
+            'Variação (%)': [f"{x:+.1f}%" if x != 0 else "-" for x in var_pct]
+        })
+        st.markdown("**Demonstrativo Analítico Interanual:**")
+        st.dataframe(df_exibir_vg, use_container_width=True)
+
+    # --- SUBABA 2: GESTÃO DE SÓCIOS YOY ---
+    with tab_socios:
+        st.markdown("### 👥 Análise Comparativa por Conta de Sócios")
+        
+        df_soc_all = df_base[df_base[col_grupo].str.contains('SÓCIO', na=False, case=False)].copy()
+        
+        if not df_soc_all.empty:
+            socios_lista = sorted(df_soc_all[col_contato].dropna().unique().tolist())
+            socio_sel_yoy = st.selectbox("Selecione o Sócio para Comparação interanual:", socios_lista)
+            
+            df_soc_filtrado = df_soc_all[df_soc_all[col_contato] == socio_sel_yoy].copy()
+            df_soc_m = df_soc_filtrado.groupby(['ano', 'mes'])[col_valor].sum().unstack(level=0, fill_value=0).reset_index()
+            
+            if 2025 not in df_soc_m.columns: df_soc_m[2025] = 0.0
+            if 2026 not in df_soc_m.columns: df_soc_m[2026] = 0.0
+            
+            df_soc_comp = pd.merge(df_calendario, df_soc_m, on='mes', how='left').fillna(0)
+            df_soc_comp['acum_2025'] = df_soc_comp[2025].cumsum()
+            df_soc_comp['acum_2026'] = df_soc_comp[2026].cumsum()
+            
+            visao_socio = st.radio("Selecione o tipo de visão:", ["Visão Mensal", "Visão Acumulada (YTD)"], horizontal=True)
+            
+            fig_soc_yoy = go.Figure()
+            if visao_socio == "Visão Mensal":
+                v25, v26 = df_soc_comp[2025], df_soc_comp[2026]
+                tit_s = f"Retiradas Mensais — {socio_sel_yoy}"
+            else:
+                v25, v26 = df_soc_comp['acum_2025'], df_soc_comp['acum_2026']
+                tit_s = f"Evolução Acumulada (YTD) — {socio_sel_yoy}"
+                
+            fig_soc_yoy.add_trace(go.Bar(
+                x=df_soc_comp['mes_nome'].str.upper(), y=v25, name='2025', marker_color='#94A3B8',
+                text=[formatar_brl(x) if x != 0 else "" for x in v25], textposition='auto'
+            ))
+            fig_soc_yoy.add_trace(go.Bar(
+                x=df_soc_comp['mes_nome'].str.upper(), y=v26, name='2026', marker_color='#0B5A60',
+                text=[formatar_brl(x) if x != 0 else "" for x in v26], textposition='auto'
+            ))
+            fig_soc_yoy.update_layout(
+                title=tit_s, barmode='group', template='plotly_white',
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
+            )
+            st.plotly_chart(fig_soc_yoy, use_container_width=True)
+            
+            df_tab_soc = pd.DataFrame({
+                'Mês': df_soc_comp['mes_nome'].str.upper(),
+                'Mensal 2025': df_soc_comp[2025].apply(formatar_brl),
+                'Mensal 2026': df_soc_comp[2026].apply(formatar_brl),
+                'Acumulado 2025': df_soc_comp['acum_2025'].apply(formatar_brl),
+                'Acumulado 2026': df_soc_comp['acum_2026'].apply(formatar_brl)
+            })
+            st.dataframe(df_tab_soc, use_container_width=True)
+        else:
+            st.info("Nenhum dado associado a Sócios encontrado na base.")
+
+    # --- SUBABA 3: CUSTOS NA PRESTAÇÃO YOY ---
+    with tab_custos:
+        st.markdown("### 🏗️ Histórico Comparativo de Custos Operacionais")
+        
+        df_custos_all = df_base[df_base[col_grupo].str.contains('CUSTOS NA PRESTAÇÃO DE SERVIÇO', na=False, case=False)].copy()
+        
+        if not df_custos_all.empty:
+            df_custos_m = df_custos_all.groupby(['ano', 'mes'])[col_valor].sum().unstack(level=0, fill_value=0).reset_index()
+            
+            if 2025 not in df_custos_m.columns: df_custos_m[2025] = 0.0
+            if 2026 not in df_custos_m.columns: df_custos_m[2026] = 0.0
+            
+            df_custos_comp = pd.merge(df_calendario, df_custos_m, on='mes', how='left').fillna(0)
+            df_custos_comp['acum_2025'] = df_custos_comp[2025].cumsum()
+            df_custos_comp['acum_2026'] = df_custos_comp[2026].cumsum()
+            
+            visao_custos = st.radio("Selecione o tipo de visão:", ["Mensal ", "Acumulado (YTD) "], horizontal=True)
+            
+            fig_custos_yoy = go.Figure()
+            if visao_custos == "Mensal ":
+                v25_c, v26_c = df_custos_comp[2025], df_custos_comp[2026]
+                tit_c = "Custos Mensais Globais na Prestação de Serviço"
+            else:
+                v25_c, v26_c = df_custos_comp['acum_2025'], df_custos_comp['acum_2026']
+                tit_c = "Evolução do Custo Acumulado (YTD) na Prestação de Serviço"
+                
+            fig_custos_yoy.add_trace(go.Bar(
+                x=df_custos_comp['mes_nome'].str.upper(), y=v25_c, name='2025', marker_color='#FCA5A5',
+                text=[formatar_brl(x) if x != 0 else "" for x in v25_c], textposition='auto'
+            ))
+            fig_custos_yoy.add_trace(go.Bar(
+                x=df_custos_comp['mes_nome'].str.upper(), y=v26_c, name='2026', marker_color='#13A3B5',
+                text=[formatar_brl(x) if x != 0 else "" for x in v26_c], textposition='auto'
+            ))
+            fig_custos_yoy.update_layout(
+                title=tit_c, barmode='group', template='plotly_white',
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
+            )
+            st.plotly_chart(fig_custos_yoy, use_container_width=True)
+            
+            df_tab_custos = pd.DataFrame({
+                'Mês': df_custos_comp['mes_nome'].str.upper(),
+                'Custos 2025': df_custos_comp[2025].apply(formatar_brl),
+                'Custos 2026': df_custos_comp[2026].apply(formatar_brl),
+                'Acumulado 2025': df_custos_comp['acum_2025'].apply(formatar_brl),
+                'Acumulado 2026': df_custos_comp['acum_2026'].apply(formatar_brl)
+            })
+            st.dataframe(df_tab_custos, use_container_width=True)
+        else:
+            st.info("Nenhuma movimentação de Custos na Prestação de Serviço mapeada.")

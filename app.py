@@ -53,18 +53,15 @@ def formatar_pct(valor):
     return f"{valor:.1f}%".replace(".", ",")
 
 def formatar_k(valor):
-    """Formatador de alta performance para rótulos de gráficos (Ex: R$ 150K)"""
+    """Formatador limpo para gráficos: Arredonda sem decimais (Ex: R$ 11K)"""
     if valor is None or pd.isna(valor) or valor == 0:
         return ""
     prefixo = "R$ "
     v_abs = abs(valor)
     
     if v_abs >= 1000:
-        v_k = v_abs / 1000
-        if v_k.is_integer():
-            texto = f"{v_k:,.0f}K"
-        else:
-            texto = f"{v_k:,.1f}K"
+        v_k = round(v_abs / 1000)
+        texto = f"{v_k:,.0f}K"
     else:
         texto = f"{v_abs:,.0f}"
         
@@ -88,7 +85,7 @@ def carregar_dados():
     col_grupo = df.columns[13]         # Grupo (N)
     col_tipo_p = df.columns[15]        # Coluna P - Tipo
     
-    # FILTRO DEFINITIVO PARA SITUAÇÃO (Conciliado e Sem conciliação)
+    # FILTRO DEFINITIVO PARA SITUAÇÃO
     mascara_situacao = df[col_situacao].astype(str).str.contains('conciliad|sem concilia', case=False, na=False, regex=True)
     df = df[mascara_situacao].copy()
     
@@ -149,7 +146,6 @@ mes_selecionado = st.sidebar.selectbox(
     index=len(meses_disponiveis) - 1
 )
 
-# Filtros de contexto para as páginas padrão
 reg_ref = df_base[df_base['ano_mes_texto'] == mes_selecionado].iloc[0]
 df_ytd = df_base[(df_base['ano'] == reg_ref['ano']) & (df_base['mes'] <= reg_ref['mes'])].copy()
 df_mes = df_base[df_base['ano_mes_texto'] == mes_selecionado].copy()
@@ -223,10 +219,12 @@ if pagina == "🚀 Visão Geral (YTD)":
         text=textos_grafico, 
         textposition='auto'
     ))
+    fig_evolucao.update_traces(textangle=0) # Força texto na horizontal
     fig_evolucao.update_layout(
         template="plotly_white", 
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(t=25, b=15)
+        margin=dict(t=25, b=15),
+        bargap=0.15 # Colunas mais robustas
     )
     st.plotly_chart(fig_evolucao, use_container_width=True)
 
@@ -257,7 +255,7 @@ elif pagina == "📈 Análise de Entradas":
             template="plotly_white", labels={col_contato: 'Cliente / Origem', col_valor: 'Valor Recebido'}
         )
         fig_cli.update_traces(marker_color='#0B5A60', text=textos_cli, textposition='auto')
-        fig_cli.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis={'categoryorder':'total ascending'})
+        fig_cli.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis={'categoryorder':'total ascending'}, bargap=0.15)
         st.plotly_chart(fig_cli, use_container_width=True)
     else:
         st.info("Nenhuma entrada registrada para este mês.")
@@ -290,7 +288,7 @@ elif pagina == "📉 Detalhe de Saídas":
             template="plotly_white", labels={col_grupo: 'Grupo de Custo', col_valor: 'Total Gasto'}
         )
         fig_grp.update_traces(marker_color='#13A3B5', text=textos_grp, textposition='auto')
-        fig_grp.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis={'categoryorder':'total ascending'})
+        fig_grp.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis={'categoryorder':'total ascending'}, bargap=0.15)
         st.plotly_chart(fig_grp, use_container_width=True)
     else:
         st.info("Nenhuma saída registrada para esta competência.")
@@ -318,8 +316,8 @@ elif pagina == "👥 Gestão de Sócios":
             df_soc_agrupado, x=col_contato, y=col_valor, template="plotly_white",
             labels={col_contato: 'Sócio / Beneficiário', col_valor: 'Total Retirado'}
         )
-        fig_soc_vert.update_traces(marker_color='#0B5A60', text=textos_soc_bars, textposition='auto')
-        fig_soc_vert.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+        fig_soc_vert.update_traces(marker_color='#0B5A60', text=textos_soc_bars, textposition='auto', textangle=0)
+        fig_soc_vert.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', bargap=0.15)
         st.plotly_chart(fig_soc_vert, use_container_width=True)
         
         st.markdown("---")
@@ -372,7 +370,7 @@ elif pagina == "🏗️ Custos na Prestação de Serviço":
             template="plotly_white", labels={col_categoria: 'Categoria de Despesa', col_valor: 'Total'}
         )
         fig_ins.update_traces(marker_color='#13A3B5', text=textos_ins, textposition='auto')
-        fig_ins.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+        fig_ins.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', bargap=0.15)
         st.plotly_chart(fig_ins, use_container_width=True)
         
         df_tabela_ins = df_insumos_mes[[col_data_pag, col_contato, 'Descrição', col_valor]].copy()
@@ -461,10 +459,12 @@ elif pagina == "🔬 Análises Avançadas":
             textposition='top center'
         ))
         
+        fig_vg_yoy.update_traces(selector=dict(type='bar'), textangle=0) # Força texto horizontal nas barras
         fig_vg_yoy.update_layout(
             title=label_tit, barmode='group', template='plotly_white',
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            margin=dict(t=40, b=15), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            margin=dict(t=40, b=15), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            bargap=0.15, bargroupgap=0.05 # Força colunas robustas agrupadas
         )
         st.plotly_chart(fig_vg_yoy, use_container_width=True)
         
@@ -516,9 +516,11 @@ elif pagina == "🔬 Análises Avançadas":
                 x=df_soc_comp['mes_nome'].str.upper(), y=v26, name='2026', marker_color='#0B5A60',
                 text=[formatar_k(x) for x in v26], textposition='auto'
             ))
+            fig_soc_yoy.update_traces(textangle=0)
             fig_soc_yoy.update_layout(
                 title=tit_s, barmode='group', template='plotly_white',
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                bargap=0.15, bargroupgap=0.05
             )
             st.plotly_chart(fig_soc_yoy, use_container_width=True)
             
@@ -567,9 +569,11 @@ elif pagina == "🔬 Análises Avançadas":
                 x=df_custos_comp['mes_nome'].str.upper(), y=v26_c, name='2026', marker_color='#13A3B5',
                 text=[formatar_k(x) for x in v26_c], textposition='auto'
             ))
+            fig_custos_yoy.update_traces(textangle=0)
             fig_custos_yoy.update_layout(
                 title=tit_c, barmode='group', template='plotly_white',
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                bargap=0.15, bargroupgap=0.05
             )
             st.plotly_chart(fig_custos_yoy, use_container_width=True)
             

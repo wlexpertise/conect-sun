@@ -53,7 +53,6 @@ def formatar_pct(valor):
     return f"{valor:.1f}%".replace(".", ",")
 
 def formatar_k(valor):
-    """Formatador limpo para gráficos: Arredonda sem decimais (Ex: R$ 11K)"""
     if valor is None or pd.isna(valor) or valor == 0:
         return ""
     prefixo = "R$ "
@@ -77,28 +76,24 @@ def carregar_dados():
     df = pd.read_excel(nome_do_arquivo)
     df.columns = df.columns.str.strip()
     
-    col_data_pag = df.columns[4]       # Data de pagamento (E)
-    col_contato = df.columns[7]        # Contato (H)
-    col_categoria = df.columns[10]     # Categoria (K)
-    col_situacao = df.columns[11]      # Situação (L)
-    col_valor = df.columns[12]         # Valor (M)
-    col_grupo = df.columns[13]         # Grupo (N)
-    col_tipo_p = df.columns[15]        # Coluna P - Tipo
+    col_data_pag = df.columns[4]       
+    col_contato = df.columns[7]        
+    col_categoria = df.columns[10]     
+    col_situacao = df.columns[11]      
+    col_valor = df.columns[12]         
+    col_grupo = df.columns[13]         
+    col_tipo_p = df.columns[15]        
     
-    # FILTRO DEFINITIVO PARA SITUAÇÃO
     mascara_situacao = df[col_situacao].astype(str).str.contains('conciliad|sem concilia', case=False, na=False, regex=True)
     df = df[mascara_situacao].copy()
     
-    # Tratamento da coluna de valores
     if df[col_valor].dtype == object:
         df[col_valor] = df[col_valor].astype(str).str.replace('R$', '', regex=False).str.replace('.', '', regex=False).str.replace(',', '.', regex=False).str.strip()
     df[col_valor] = pd.to_numeric(df[col_valor], errors='coerce').fillna(0)
     
-    # Tratamento de datas
     df[col_data_pag] = pd.to_datetime(df[col_data_pag], errors='coerce', dayfirst=True)
     df = df.dropna(subset=[col_data_pag])
     
-    # Criação de colunas temporais
     df['ano'] = df[col_data_pag].dt.year
     df['mes'] = df[col_data_pag].dt.month
     df['ano_mes_num'] = df[col_data_pag].dt.strftime('%Y%m')
@@ -106,7 +101,6 @@ def carregar_dados():
     df['mes_nome_pt'] = df['mes'].map(meses_pt)
     df['ano_mes_texto'] = df['mes_nome_pt'] + '/' + df['ano'].astype(str)
     
-    # Definição do fluxo (Entrada/Saída)
     df['tipo_p_limpo'] = df[col_tipo_p].astype(str).str.strip().str.upper()
     df['fluxo_limpo'] = 'ignorar'
     
@@ -417,34 +411,21 @@ elif pagina == "🔬 Análises Avançadas":
         df_comp = pd.merge(df_calendario, df_2025, on='mes', how='left').fillna(0)
         df_comp = pd.merge(df_comp, df_2026, on='mes', how='left', suffixes=('_2025', '_2026')).fillna(0)
         
-        # Consolidação do Acumulado (Anexo na 13ª Coluna)
-        t_ent_25, t_sai_25, t_res_25 = df_comp['entrada_2025'].sum(), df_comp['saída_2025'].sum(), df_comp['resultado_2025'].sum()
-        t_ent_26, t_sai_26, t_res_26 = df_comp['entrada_2026'].sum(), df_comp['saída_2026'].sum(), df_comp['resultado_2026'].sum()
-        
-        df_comp = pd.concat([
-            df_comp,
-            pd.DataFrame([{
-                'mes': 13, 'mes_nome': 'ACUM.',
-                'entrada_2025': t_ent_25, 'saída_2025': t_sai_25, 'resultado_2025': t_res_25,
-                'entrada_2026': t_ent_26, 'saída_2026': t_sai_26, 'resultado_2026': t_res_26
-            }])
-        ], ignore_index=True)
-        
         if metrica_yoy == "Entradas":
             v2025 = df_comp['entrada_2025']
             v2026 = df_comp['entrada_2026']
             c_2025, c_2026 = '#A3D9E2', '#0B5A60'
-            label_tit = "Comparativo Mensal e Acumulado de Entradas"
+            label_tit = "Comparativo Mensal de Entradas"
         elif metrica_yoy == "Saídas":
             v2025 = df_comp['saída_2025']
             v2026 = df_comp['saída_2026']
             c_2025, c_2026 = '#FCA5A5', '#EF4444'
-            label_tit = "Comparativo Mensal e Acumulado de Saídas"
+            label_tit = "Comparativo Mensal de Saídas"
         else:
             v2025 = df_comp['resultado_2025']
             v2026 = df_comp['resultado_2026']
             c_2025, c_2026 = '#93C5FD', '#1D4ED8'
-            label_tit = "Comparativo Mensal e Acumulado do Resultado Líquido"
+            label_tit = "Comparativo Mensal do Resultado Líquido"
             
         var_pct = []
         for r25, r26 in zip(v2025, v2026):
@@ -455,46 +436,70 @@ elif pagina == "🔬 Análises Avançadas":
             else:
                 var_pct.append(0.0)
                 
-        fig_vg_yoy = go.Figure()
-        fig_vg_yoy.add_trace(go.Bar(
-            x=df_comp['mes_nome'].str.upper(), y=v2025, name='Ano 2025', marker_color=c_2025,
-            text=[formatar_k(x) for x in v2025], textposition='auto'
-        ))
-        fig_vg_yoy.add_trace(go.Bar(
-            x=df_comp['mes_nome'].str.upper(), y=v2026, name='Ano 2026', marker_color=c_2026,
-            text=[formatar_k(x) for x in v2026], textposition='auto'
-        ))
+        # Layout lado a lado para não estourar a escala
+        col_esq, col_dir = st.columns([3, 1])
         
-        # Linha de tendência apenas para a evolução dos meses (Exclui salto do ACUM.)
-        fig_vg_yoy.add_trace(go.Scatter(
-            x=df_comp['mes_nome'].str.upper().iloc[:12], y=v2026.iloc[:12], mode='lines+markers',
-            name='Tendência 2026', line=dict(color='#F59E0B', width=2, dash='dot'), showlegend=False
-        ))
-        
-        # Indicadores de Crescimento % flutuando sobre todas as colunas (Incluindo o ACUM.)
-        fig_vg_yoy.add_trace(go.Scatter(
-            x=df_comp['mes_nome'].str.upper(), y=v2026, mode='text',
-            name='Variação %',
-            text=[f"{' ' if v < 0 else '+'}{v:.1f}%" if v != 0 else "" for v in var_pct],
-            textposition='top center'
-        ))
-        
-        fig_vg_yoy.update_traces(selector=dict(type='bar'), textangle=0)
-        fig_vg_yoy.update_layout(
-            title=label_tit, barmode='group', template='plotly_white',
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            margin=dict(t=40, b=15), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            bargap=0.15, bargroupgap=0.05
-        )
-        st.plotly_chart(fig_vg_yoy, use_container_width=True)
+        with col_esq:
+            fig_vg_yoy = go.Figure()
+            fig_vg_yoy.add_trace(go.Bar(
+                x=df_comp['mes_nome'].str.upper(), y=v2025, name='2025', marker_color=c_2025,
+                text=[formatar_k(x) for x in v2025], textposition='auto'
+            ))
+            fig_vg_yoy.add_trace(go.Bar(
+                x=df_comp['mes_nome'].str.upper(), y=v2026, name='2026', marker_color=c_2026,
+                text=[formatar_k(x) for x in v2026], textposition='auto'
+            ))
+            fig_vg_yoy.add_trace(go.Scatter(
+                x=df_comp['mes_nome'].str.upper(), y=v2026, mode='text',
+                name='Variação %',
+                text=[f"{' ' if v < 0 else '+'}{v:.1f}%" if v != 0 else "" for v in var_pct],
+                textposition='top center'
+            ))
+            fig_vg_yoy.update_traces(selector=dict(type='bar'), textangle=0)
+            fig_vg_yoy.update_layout(
+                title=label_tit, barmode='group', template='plotly_white',
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                margin=dict(t=40, b=15), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                bargap=0.15, bargroupgap=0.05
+            )
+            st.plotly_chart(fig_vg_yoy, use_container_width=True)
+            
+        with col_dir:
+            t_2025 = v2025.sum()
+            t_2026 = v2026.sum()
+            
+            # Se for Resultado Líquido e houver valores negativos, usa barras de escala própria para evitar quebra matemática na pizza
+            if t_2025 < 0 or t_2026 < 0:
+                fig_acum = go.Figure(go.Bar(
+                    x=['2025', '2026'], y=[t_2025, t_2026], marker_color=[c_2025, c_2026],
+                    text=[formatar_k(t_2025), formatar_k(t_2026)], textposition='auto'
+                ))
+                fig_acum.update_layout(title="Acumulado Total (R$)", template='plotly_white', yaxis_visible=False)
+            else:
+                fig_acum = go.Figure(go.Pie(
+                    labels=['Ano 2025', 'Ano 2026'], values=[t_2025, t_2026], hole=0.4,
+                    marker=dict(colors=[c_2025, c_2026]), textinfo='percent',
+                    hovertext=[formatar_brl(t_2025), formatar_brl(t_2026)], hoverinfo="label+text+percent"
+                ))
+                fig_acum.update_layout(title="Divisão do Acumulado", template='plotly_white', margin=dict(t=40, b=15, l=10, r=10))
+            st.plotly_chart(fig_acum, use_container_width=True)
+            
+        # Criação da tabela com linha de acumulado para fins de relatório limpo
+        t_tot_25, t_tot_26 = v2025.sum(), v2026.sum()
+        pct_total = ((t_tot_26 - t_tot_25) / abs(t_tot_25) * 100) if t_tot_25 != 0 else 0
         
         df_exibir_vg = pd.DataFrame({
-            'Mês de Referência': df_comp['mes_nome'].str.upper(),
-            'Realizado 2025': v2025.apply(formatar_brl),
-            'Realizado 2026': v2026.apply(formatar_brl),
-            'Diferença Absoluta': (v2026 - v2025).apply(formatar_brl),
-            'Variação (%)': [f"{x:+.1f}%" if x != 0 else "-" for x in var_pct]
+            'Mês de Referência': df_comp['mes_nome'].str.upper().tolist() + ['ACUMULADO'],
+            'Realizado 2025': v2025.tolist() + [t_tot_25],
+            'Realizado 2026': v2026.tolist() + [t_tot_26],
         })
+        df_exibir_vg['Diferença Absoluta'] = df_exibir_vg['Realizado 2026'] - df_exibir_vg['Realizado 2025']
+        df_exibir_vg['Variação (%)'] = [f"{x:+.1f}%" if x != 0 else "-" for x in var_pct] + [f"{pct_total:+.1f}%"]
+        
+        df_exibir_vg['Realizado 2025'] = df_exibir_vg['Realizado 2025'].apply(formatar_brl)
+        df_exibir_vg['Realizado 2026'] = df_exibir_vg['Realizado 2026'].apply(formatar_brl)
+        df_exibir_vg['Diferença Absoluta'] = df_exibir_vg['Diferença Absoluta'].apply(formatar_brl)
+        
         st.markdown("**Demonstrativo Analítico Interanual:**")
         st.dataframe(df_exibir_vg, use_container_width=True)
 
@@ -505,49 +510,65 @@ elif pagina == "🔬 Análises Avançadas":
         df_soc_all = df_base[df_base[col_grupo].str.contains('SÓCIO', na=False, case=False)].copy()
         
         if not df_soc_all.empty:
-            socios_lista = sorted(df_soc_all[col_contato].dropna().unique().tolist())
+            # Opção "Todos" inclusa conforme solicitado
+            socios_lista = ["Todos"] + sorted(df_soc_all[col_contato].dropna().unique().tolist())
             socio_sel_yoy = st.selectbox("Selecione o Sócio para Comparação interanual:", socios_lista)
             
-            df_soc_filtrado = df_soc_all[df_soc_all[col_contato] == socio_sel_yoy].copy()
+            if socio_sel_yoy == "Todos":
+                df_soc_filtrado = df_soc_all.copy()
+                tit_s = "Retiradas Mensais — Consolidação de Todos os Sócios"
+            else:
+                df_soc_filtrado = df_soc_all[df_soc_all[col_contato] == socio_sel_yoy].copy()
+                tit_s = f"Retiradas Mensais — {socio_sel_yoy}"
+                
             df_soc_m = df_soc_filtrado.groupby(['ano', 'mes'])[col_valor].sum().unstack(level=0, fill_value=0).reset_index()
             
             if 2025 not in df_soc_m.columns: df_soc_m[2025] = 0.0
             if 2026 not in df_soc_m.columns: df_soc_m[2026] = 0.0
             
             df_soc_comp = pd.merge(df_calendario, df_soc_m, on='mes', how='left').fillna(0)
-            
-            # Anexa o acumulado total no final da tabela/gráfico
-            t_soc_25, t_soc_26 = df_soc_comp[2025].sum(), df_soc_comp[2026].sum()
-            df_soc_comp = pd.concat([
-                df_soc_comp,
-                pd.DataFrame([{'mes': 13, 'mes_nome': 'ACUM.', 2025: t_soc_25, 2026: t_soc_26}])
-            ], ignore_index=True)
-            
             v25, v26 = df_soc_comp[2025], df_soc_comp[2026]
-            tit_s = f"Retiradas Mensais e Total Acumulado Anual — {socio_sel_yoy}"
+            
+            col_s_esq, col_s_dir = st.columns([3, 1])
+            
+            with col_s_esq:
+                fig_soc_yoy = go.Figure()
+                fig_soc_yoy.add_trace(go.Bar(
+                    x=df_soc_comp['mes_nome'].str.upper(), y=v25, name='2025', marker_color='#94A3B8',
+                    text=[formatar_k(x) for x in v25], textposition='auto'
+                ))
+                fig_soc_yoy.add_trace(go.Bar(
+                    x=df_soc_comp['mes_nome'].str.upper(), y=v26, name='2026', marker_color='#0B5A60',
+                    text=[formatar_k(x) for x in v26], textposition='auto'
+                ))
+                fig_soc_yoy.update_traces(textangle=0)
+                fig_soc_yoy.update_layout(
+                    title=tit_s, barmode='group', template='plotly_white',
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    bargap=0.15, bargroupgap=0.05
+                )
+                st.plotly_chart(fig_soc_yoy, use_container_width=True)
                 
-            fig_soc_yoy = go.Figure()
-            fig_soc_yoy.add_trace(go.Bar(
-                x=df_soc_comp['mes_nome'].str.upper(), y=v25, name='2025', marker_color='#94A3B8',
-                text=[formatar_k(x) for x in v25], textposition='auto'
-            ))
-            fig_soc_yoy.add_trace(go.Bar(
-                x=df_soc_comp['mes_nome'].str.upper(), y=v26, name='2026', marker_color='#0B5A60',
-                text=[formatar_k(x) for x in v26], textposition='auto'
-            ))
-            fig_soc_yoy.update_traces(textangle=0)
-            fig_soc_yoy.update_layout(
-                title=tit_s, barmode='group', template='plotly_white',
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                bargap=0.15, bargroupgap=0.05
-            )
-            st.plotly_chart(fig_soc_yoy, use_container_width=True)
+            with col_s_dir:
+                ts_25, ts_26 = v25.sum(), v26.sum()
+                if ts_25 == 0 and ts_26 == 0:
+                    st.info("Sem retiradas acumuladas.")
+                else:
+                    fig_soc_pie = go.Figure(go.Pie(
+                        labels=['Ano 2025', 'Ano 2026'], values=[ts_25, ts_26], hole=0.4,
+                        marker=dict(colors=['#94A3B8', '#0B5A60']), textinfo='percent',
+                        hovertext=[formatar_brl(ts_25), formatar_brl(ts_26)], hoverinfo="label+text+percent"
+                    ))
+                    fig_soc_pie.update_layout(title="Proporção Acumulada", template='plotly_white', margin=dict(t=40, b=15, l=10, r=10))
+                    st.plotly_chart(fig_soc_pie, use_container_width=True)
             
             df_tab_soc = pd.DataFrame({
-                'Mês / Referência': df_soc_comp['mes_nome'].str.upper(),
-                'Realizado 2025': df_soc_comp[2025].apply(formatar_brl),
-                'Realizado 2026': df_soc_comp[2026].apply(formatar_brl)
+                'Mês / Referência': df_soc_comp['mes_nome'].str.upper().tolist() + ['ACUMULADO'],
+                'Realizado 2025': v25.tolist() + [ts_25],
+                'Realizado 2026': v26.tolist() + [ts_26]
             })
+            df_tab_soc['Realizado 2025'] = df_tab_soc['Realizado 2025'].apply(formatar_brl)
+            df_tab_soc['Realizado 2026'] = df_tab_soc['Realizado 2026'].apply(formatar_brl)
             st.dataframe(df_tab_soc, use_container_width=True)
         else:
             st.info("Nenhum dado associado a Sócios encontrado na base.")
@@ -565,39 +586,48 @@ elif pagina == "🔬 Análises Avançadas":
             if 2026 not in df_custos_m.columns: df_custos_m[2026] = 0.0
             
             df_custos_comp = pd.merge(df_calendario, df_custos_m, on='mes', how='left').fillna(0)
-            
-            # Anexa o acumulado total no final da tabela/gráfico
-            t_custos_25, t_custos_26 = df_custos_comp[2025].sum(), df_custos_comp[2026].sum()
-            df_custos_comp = pd.concat([
-                df_custos_comp,
-                pd.DataFrame([{'mes': 13, 'mes_nome': 'ACUM.', 2025: t_custos_25, 2026: t_custos_26}])
-            ], ignore_index=True)
-            
             v25_c, v26_c = df_custos_comp[2025], df_custos_comp[2026]
-            tit_c = "Custos na Prestação de Serviço — Mensalidades e Acumulado do Ano"
+            
+            col_c_esq, col_c_dir = st.columns([3, 1])
+            
+            with col_c_esq:
+                fig_custos_yoy = go.Figure()
+                fig_custos_yoy.add_trace(go.Bar(
+                    x=df_custos_comp['mes_nome'].str.upper(), y=v25_c, name='2025', marker_color='#FCA5A5',
+                    text=[formatar_k(x) for x in v25_c], textposition='auto'
+                ))
+                fig_custos_yoy.add_trace(go.Bar(
+                    x=df_custos_comp['mes_nome'].str.upper(), y=v26_c, name='2026', marker_color='#13A3B5',
+                    text=[formatar_k(x) for x in v26_c], textposition='auto'
+                ))
+                fig_custos_yoy.update_traces(textangle=0)
+                fig_custos_yoy.update_layout(
+                    title="Custos na Prestação de Serviço — Mensalidades", barmode='group', template='plotly_white',
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    bargap=0.15, bargroupgap=0.05
+                )
+                st.plotly_chart(fig_custos_yoy, use_container_width=True)
                 
-            fig_custos_yoy = go.Figure()
-            fig_custos_yoy.add_trace(go.Bar(
-                x=df_custos_comp['mes_nome'].str.upper(), y=v25_c, name='2025', marker_color='#FCA5A5',
-                text=[formatar_k(x) for x in v25_c], textposition='auto'
-            ))
-            fig_custos_yoy.add_trace(go.Bar(
-                x=df_custos_comp['mes_nome'].str.upper(), y=v26_c, name='2026', marker_color='#13A3B5',
-                text=[formatar_k(x) for x in v26_c], textposition='auto'
-            ))
-            fig_custos_yoy.update_traces(textangle=0)
-            fig_custos_yoy.update_layout(
-                title=tit_c, barmode='group', template='plotly_white',
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                bargap=0.15, bargroupgap=0.05
-            )
-            st.plotly_chart(fig_custos_yoy, use_container_width=True)
+            with col_c_dir:
+                tc_25, tc_26 = v25_c.sum(), v26_c.sum()
+                if tc_25 == 0 and tc_26 == 0:
+                    st.info("Sem custos acumulados.")
+                else:
+                    fig_custos_pie = go.Figure(go.Pie(
+                        labels=['Ano 2025', 'Ano 2026'], values=[tc_25, tc_26], hole=0.4,
+                        marker=dict(colors=['#FCA5A5', '#13A3B5']), textinfo='percent',
+                        hovertext=[formatar_brl(tc_25), formatar_brl(tc_26)], hoverinfo="label+text+percent"
+                    ))
+                    fig_custos_pie.update_layout(title="Total Acumulado YoY", template='plotly_white', margin=dict(t=40, b=15, l=10, r=10))
+                    st.plotly_chart(fig_custos_pie, use_container_width=True)
             
             df_tab_custos = pd.DataFrame({
-                'Mês / Referência': df_custos_comp['mes_nome'].str.upper(),
-                'Realizado 2025': df_custos_comp[2025].apply(formatar_brl),
-                'Realizado 2026': df_custos_comp[2026].apply(formatar_brl)
+                'Mês / Referência': df_custos_comp['mes_nome'].str.upper().tolist() + ['ACUMULADO'],
+                'Realizado 2025': v25_c.tolist() + [tc_25],
+                'Realizado 2026': v26_c.tolist() + [tc_26]
             })
+            df_tab_custos['Realizado 2025'] = df_tab_custos['Realizado 2025'].apply(formatar_brl)
+            df_tab_custos['Realizado 2026'] = df_tab_custos['Realizado 2026'].apply(formatar_brl)
             st.dataframe(df_tab_custos, use_container_width=True)
         else:
             st.info("Nenhuma movimentação de Custos na Prestação de Serviço mapeada.")

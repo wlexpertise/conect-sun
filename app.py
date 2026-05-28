@@ -66,7 +66,7 @@ def carregar_dados():
     col_grupo = df.columns[13]         # Grupo (N)
     col_tipo_p = df.columns[15]        # Coluna P - Tipo
     
-    # 🔥 FILTRO DEFINITIVO E TOLERANTE PARA SITUAÇÃO (Conciliado e Sem conciliação)
+    # Filtro flexível para Situação (Pega Conciliado e Sem conciliação perfeitamente)
     mascara_situacao = df[col_situacao].astype(str).str.contains('conciliad|sem concilia', case=False, na=False, regex=True)
     df = df[mascara_situacao].copy()
     
@@ -87,11 +87,12 @@ def carregar_dados():
     df['mes_nome_pt'] = df['mes'].map(meses_pt)
     df['ano_mes_texto'] = df['mes_nome_pt'] + '/' + df['ano'].astype(str)
     
-    # Definição do fluxo (Entrada/Saída)
+    # 🔥 A CORREÇÃO DE OURO: Usando 'contains' para ignorar o "0 " que vem no Excel
     df['tipo_p_limpo'] = df[col_tipo_p].astype(str).str.strip().str.upper()
     df['fluxo_limpo'] = 'ignorar'
-    df.loc[df['tipo_p_limpo'] == 'VENDA', 'fluxo_limpo'] = 'entrada'
-    df.loc[df['tipo_p_limpo'].isin(['CUSTO', 'DESPESA']), 'fluxo_limpo'] = 'saída'
+    
+    df.loc[df['tipo_p_limpo'].str.contains('VENDA', na=False), 'fluxo_limpo'] = 'entrada'
+    df.loc[df['tipo_p_limpo'].str.contains('CUSTO|DESPESA', na=False), 'fluxo_limpo'] = 'saída'
     
     df = df[df['fluxo_limpo'].isin(['entrada', 'saída'])].copy()
     

@@ -54,7 +54,7 @@ def formatar_pct(valor):
 
 def formatar_k(valor):
     if valor is None or pd.isna(valor) or valor == 0:
-        return ""
+        return "R$ 0K"
     prefixo = "R$ "
     v_abs = abs(valor)
     
@@ -436,7 +436,6 @@ elif pagina == "🔬 Análises Avançadas":
             else:
                 var_pct.append(0.0)
                 
-        # Layout lado a lado para não estourar a escala
         col_esq, col_dir = st.columns([3, 1])
         
         with col_esq:
@@ -468,23 +467,28 @@ elif pagina == "🔬 Análises Avançadas":
             t_2025 = v2025.sum()
             t_2026 = v2026.sum()
             
-            # Se for Resultado Líquido e houver valores negativos, usa barras de escala própria para evitar quebra matemática na pizza
             if t_2025 < 0 or t_2026 < 0:
                 fig_acum = go.Figure(go.Bar(
                     x=['2025', '2026'], y=[t_2025, t_2026], marker_color=[c_2025, c_2026],
                     text=[formatar_k(t_2025), formatar_k(t_2026)], textposition='auto'
                 ))
-                fig_acum.update_layout(title="Acumulado Total (R$)", template='plotly_white', yaxis_visible=False)
+                fig_acum.update_layout(
+                    title="Acumulado Total (R$)", template='plotly_white', yaxis_visible=False,
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
+                )
             else:
                 fig_acum = go.Figure(go.Pie(
-                    labels=['Ano 2025', 'Ano 2026'], values=[t_2025, t_2026], hole=0.4,
-                    marker=dict(colors=[c_2025, c_2026]), textinfo='percent',
-                    hovertext=[formatar_brl(t_2025), formatar_brl(t_2026)], hoverinfo="label+text+percent"
+                    labels=['2025', '2026'], values=[t_2025, t_2026], hole=0.4,
+                    marker=dict(colors=[c_2025, c_2026]),
+                    text=[f"{formatar_k(t_2025)}<br>2025", f"{formatar_k(t_2026)}<br>2026"],
+                    textinfo='text', hovertext=[formatar_brl(t_2025), formatar_brl(t_2026)], hoverinfo="label+text"
                 ))
-                fig_acum.update_layout(title="Divisão do Acumulado", template='plotly_white', margin=dict(t=40, b=15, l=10, r=10))
+                fig_acum.update_layout(
+                    title="Acumulado Total", template='plotly_white', margin=dict(t=40, b=15, l=10, r=10),
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
+                )
             st.plotly_chart(fig_acum, use_container_width=True)
             
-        # Criação da tabela com linha de acumulado para fins de relatório limpo
         t_tot_25, t_tot_26 = v2025.sum(), v2026.sum()
         pct_total = ((t_tot_26 - t_tot_25) / abs(t_tot_25) * 100) if t_tot_25 != 0 else 0
         
@@ -510,7 +514,6 @@ elif pagina == "🔬 Análises Avançadas":
         df_soc_all = df_base[df_base[col_grupo].str.contains('SÓCIO', na=False, case=False)].copy()
         
         if not df_soc_all.empty:
-            # Opção "Todos" inclusa conforme solicitado
             socios_lista = ["Todos"] + sorted(df_soc_all[col_contato].dropna().unique().tolist())
             socio_sel_yoy = st.selectbox("Selecione o Sócio para Comparação interanual:", socios_lista)
             
@@ -555,11 +558,15 @@ elif pagina == "🔬 Análises Avançadas":
                     st.info("Sem retiradas acumuladas.")
                 else:
                     fig_soc_pie = go.Figure(go.Pie(
-                        labels=['Ano 2025', 'Ano 2026'], values=[ts_25, ts_26], hole=0.4,
-                        marker=dict(colors=['#94A3B8', '#0B5A60']), textinfo='percent',
-                        hovertext=[formatar_brl(ts_25), formatar_brl(ts_26)], hoverinfo="label+text+percent"
+                        labels=['2025', '2026'], values=[ts_25, ts_26], hole=0.4,
+                        marker=dict(colors=['#94A3B8', '#0B5A60']),
+                        text=[f"{formatar_k(ts_25)}<br>2025", f"{formatar_k(ts_26)}<br>2026"],
+                        textinfo='text', hovertext=[formatar_brl(ts_25), formatar_brl(ts_26)], hoverinfo="label+text"
                     ))
-                    fig_soc_pie.update_layout(title="Proporção Acumulada", template='plotly_white', margin=dict(t=40, b=15, l=10, r=10))
+                    fig_soc_pie.update_layout(
+                        title="Acumulado Retiradas", template='plotly_white', margin=dict(t=40, b=15, l=10, r=10),
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
+                    )
                     st.plotly_chart(fig_soc_pie, use_container_width=True)
             
             df_tab_soc = pd.DataFrame({
@@ -614,11 +621,15 @@ elif pagina == "🔬 Análises Avançadas":
                     st.info("Sem custos acumulados.")
                 else:
                     fig_custos_pie = go.Figure(go.Pie(
-                        labels=['Ano 2025', 'Ano 2026'], values=[tc_25, tc_26], hole=0.4,
-                        marker=dict(colors=['#FCA5A5', '#13A3B5']), textinfo='percent',
-                        hovertext=[formatar_brl(tc_25), formatar_brl(tc_26)], hoverinfo="label+text+percent"
+                        labels=['2025', '2026'], values=[tc_25, tc_26], hole=0.4,
+                        marker=dict(colors=['#FCA5A5', '#13A3B5']),
+                        text=[f"{formatar_k(tc_25)}<br>2025", f"{formatar_k(tc_26)}<br>2026"],
+                        textinfo='text', hovertext=[formatar_brl(tc_25), formatar_brl(tc_26)], hoverinfo="label+text"
                     ))
-                    fig_custos_pie.update_layout(title="Total Acumulado YoY", template='plotly_white', margin=dict(t=40, b=15, l=10, r=10))
+                    fig_custos_pie.update_layout(
+                        title="Acumulado Custos", template='plotly_white', margin=dict(t=40, b=15, l=10, r=10),
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
+                    )
                     st.plotly_chart(fig_custos_pie, use_container_width=True)
             
             df_tab_custos = pd.DataFrame({

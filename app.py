@@ -68,7 +68,7 @@ def carregar_dados():
     
     # Filtro de Situação: Apenas Conciliado e Sem conciliação
     df['situacao_limpa'] = df[col_situacao].astype(str).str.strip().str.lower()
-    df = df[df['situacao_limpa'].isin(['conciliado', 'sem conciliação'])].copy()
+    df = df[df['situacao_limpa'].isin(['Conciliado', 'Sem conciliação'])].copy()
     
     # Tratamento da coluna de valores
     if df[col_valor].dtype == object:

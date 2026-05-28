@@ -66,9 +66,9 @@ def carregar_dados():
     col_grupo = df.columns[13]         # Grupo (N)
     col_tipo_p = df.columns[15]        # Coluna P - Tipo
     
-    # Filtro de Situação: Apenas Conciliado e Sem conciliação
-    df['situacao_limpa'] = df[col_situacao].astype(str).str.strip().str.lower()
-    df = df[df['situacao_limpa'].isin(['Conciliado', 'Sem conciliação'])].copy()
+    # 🔥 FILTRO DEFINITIVO E TOLERANTE PARA SITUAÇÃO (Conciliado e Sem conciliação)
+    mascara_situacao = df[col_situacao].astype(str).str.contains('conciliad|sem concilia', case=False, na=False, regex=True)
+    df = df[mascara_situacao].copy()
     
     # Tratamento da coluna de valores
     if df[col_valor].dtype == object:

@@ -113,6 +113,25 @@ def carregar_dados():
 
 df_base, col_data_pag, col_contato, col_categoria, col_valor, col_grupo = carregar_dados()
 
+# --- FUNÇÃO DE CARREGAMENTO PARA A NOVA GUIA 'PAGAR' ---
+@st.cache_data
+def carregar_dados_pagar():
+    try:
+        df = pd.read_excel('dados_conectsol.xlsx', sheet_name='pagar')
+        df.columns = df.columns.str.strip()
+        
+        if 'VALOR' in df.columns and df['VALOR'].dtype == object:
+            df['VALOR'] = df['VALOR'].astype(str).str.replace('R$', '', regex=False).str.replace('.', '', regex=False).str.replace(',', '.', regex=False).str.strip()
+        df['VALOR'] = pd.to_numeric(df['VALOR'], errors='coerce').fillna(0)
+        
+        if 'DATA PAGAMENTO' in df.columns:
+            df['DATA PAGAMENTO'] = pd.to_datetime(df['DATA PAGAMENTO'], errors='coerce', dayfirst=True)
+            
+        return df
+    except Exception as e:
+        st.error(f"Erro ao carregar a guia 'pagar'. Verifique se o nome está correto no Excel. Erro: {e}")
+        return pd.DataFrame(columns=['DATA PAGAMENTO', 'FORNECEDOR', 'CATEGORIA', 'VALOR', 'SITUAÇÃO'])
+
 # ==========================================
 # 3. NAVEGAÇÃO LATERAL (MENU EXECUTIVO)
 # ==========================================
@@ -127,6 +146,7 @@ pagina = st.sidebar.radio(
         "📉 Detalhe de Saídas", 
         "👥 Gestão de Sócios", 
         "🏗️ Custos na Prestação de Serviço",
+        "📅 Pagamentos Recorrentes",
         "🔬 Análises Avançadas"
     ]
 )
@@ -374,7 +394,91 @@ elif pagina == "🏗️ Custos na Prestação de Serviço":
     else:
         st.info("Nenhuma despesa de 'Custos na Prestação de Serviço' registrada para esta competência.")
 
-# --- PÁGINA 6: ANÁLISES AVANÇADAS ---
+# --- NOVA PÁGINA 6: PAGAMENTOS RECORRENTES (IMUNE A FILTROS) ---
+elif pagina == "📅 Pagamentos Recorrentes":
+    with header_col1:
+        st.title("Controle de Pagamentos Recorrentes")
+        st.subheader("Planejamento e Status Atual de Contas Opex/Pagar")
+    with header_col2:
+        st.markdown('<div class="logo-box">', unsafe_allow_html=True)
+        st.image("conectlogo.png", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+    st.markdown("---")
+    
+    df_pagar = carregar_dados_pagar()
+    
+    if not df_pagar.empty:
+        # 1. Mapeamento de Valores para os Cards
+        total_pago = df_pagar[df_pagar['SITUAÇÃO'].astype(str).str.strip().str.upper() == 'PAGO']['VALOR'].sum()
+        total_agendado = df_pagar[df_pagar['SITUAÇÃO'].astype(str).str.strip().str.upper() == 'AGENDADO']['VALOR'].sum()
+        total_pendente = df_pagar[df_pagar['SITUAÇÃO'].astype(str).str.strip().str.upper() == 'PENDENTE']['VALOR'].sum()
+        
+        st.markdown("**Posicionamento de Fluxo Operacional (Visão Integral)**")
+        pk1, pk2, pk3 = st.columns(3)
+        pk1.metric("🟢 Total Realizado (PAGO)", formatar_brl(total_pago))
+        pk2.metric("🔵 Total Provisionado (AGENDADO)", formatar_brl(total_agendado))
+        pk3.metric("🔴 Total em Aberto (PENDENTE)", formatar_brl(total_pendente))
+        
+        st.markdown("---")
+        st.markdown("### 📋 Cronograma Geral de Compromissos")
+        
+        # 2. Mecanismo de Estilização Condicional com Base na Data Atual (2026)
+        def aplicar_cores_pagar(row):
+            status = str(row['SITUAÇÃO']).strip().upper()
+            data_venc = row['DATA PAGAMENTO']
+            hoje = pd.Timestamp.now().normalize()
+            
+            # Padrão: Sem estilo adicional
+            estilo = ""
+            
+            if status == 'PAGO':
+                # Status Pago -> Verde
+                estilo = "background-color: #d1fae5; color: #065f46; font-weight: 500;"
+            else:
+                if pd.isna(data_venc):
+                    estilo = ""
+                elif data_venc < hoje:
+                    # Data menor que atual e não pago -> Vermelho (Atrasado)
+                    estilo = "background-color: #fee2e2; color: #991b1b; font-weight: 500;"
+                elif data_venc == hoje:
+                    # Data igual à atual e não pago -> Amarelo (Vence Hoje)
+                    estilo = "background-color: #fef3c7; color: #92400e; font-weight: 500;"
+                elif data_venc > hoje:
+                    # Data superior à atual e não pago -> Azul (Futuro)
+                    estilo = "background-color: #dbeafe; color: #1e40af;"
+                    
+            return [estilo] * len(row)
+
+        # Preparação do DataFrame para renderização limpa
+        df_visualizacao = df_pagar.copy()
+        
+        # Ordena cronologicamente para facilitar a gestão do caixa
+        if 'DATA PAGAMENTO' in df_visualizacao.columns:
+            df_visualizacao = df_visualizacao.sort_values('DATA PAGAMENTO', ascending=True)
+
+        # Aplicando a máscara estética e formatação de saída
+        df_estilizado = df_visualizacao.style.apply(aplicar_cores_pagar, axis=1).format({
+            'VALOR': lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if pd.notna(x) else "-",
+            'DATA PAGAMENTO': lambda x: x.strftime('%d/%m/%Y') if isinstance(x, pd.Timestamp) else str(x)
+        })
+        
+        st.dataframe(df_estilizado, use_container_width=True, height=450)
+        
+        # Legenda explicativa para a diretoria
+        st.markdown("""
+        <div style='background-color: #ffffff; padding: 12px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
+            <span style='font-size: 13px; font-weight: 600; color: #4b5563; margin-right: 15px;'>Legenda do Painel:</span>
+            <span style='background-color: #d1fae5; color: #065f46; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; margin-right: 10px;'>🟢 Finalizado (PAGO)</span>
+            <span style='background-color: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; margin-right: 10px;'>🔴 Atrasado (Vencido)</span>
+            <span style='background-color: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; margin-right: 10px;'>🟡 Vence Hoje</span>
+            <span style='background-color: #dbeafe; color: #1e40af; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;'>🔵 Planejado (Futuro)</span>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.info("Nenhum registro encontrado na planilha correspondente à aba 'pagar'.")
+
+# --- PÁGINA 7: ANÁLISES AVANÇADAS ---
 elif pagina == "🔬 Análises Avançadas":
     with header_col1:
         st.title("Análises Avançadas Interanuais")

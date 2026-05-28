@@ -66,7 +66,7 @@ def carregar_dados():
     col_grupo = df.columns[13]         # Grupo (N)
     col_tipo_p = df.columns[15]        # Coluna P - Tipo
     
-    # Filtro flexível para Situação (Pega Conciliado e Sem conciliação perfeitamente)
+    # 🔥 FILTRO DEFINITIVO E TOLERANTE PARA SITUAÇÃO (Conciliado e Sem conciliação)
     mascara_situacao = df[col_situacao].astype(str).str.contains('conciliad|sem concilia', case=False, na=False, regex=True)
     df = df[mascara_situacao].copy()
     
@@ -87,10 +87,11 @@ def carregar_dados():
     df['mes_nome_pt'] = df['mes'].map(meses_pt)
     df['ano_mes_texto'] = df['mes_nome_pt'] + '/' + df['ano'].astype(str)
     
-    # 🔥 A CORREÇÃO DE OURO: Usando 'contains' para ignorar o "0 " que vem no Excel
+    # Definição do fluxo (Entrada/Saída)
     df['tipo_p_limpo'] = df[col_tipo_p].astype(str).str.strip().str.upper()
     df['fluxo_limpo'] = 'ignorar'
     
+    # Utilizando contains para ignorar números e espaços extras antes da palavra
     df.loc[df['tipo_p_limpo'].str.contains('VENDA', na=False), 'fluxo_limpo'] = 'entrada'
     df.loc[df['tipo_p_limpo'].str.contains('CUSTO|DESPESA', na=False), 'fluxo_limpo'] = 'saída'
     
@@ -321,7 +322,7 @@ elif pagina == "🏗️ Custos na Prestação de Serviço":
         st.markdown('</div>', unsafe_allow_html=True)
         
     st.markdown("---")
-    exibir_resumo_mes() # Insere os cards do mês
+    # Resumo do mês retirado especificamente desta aba, conforme solicitado.
     
     df_insumos_mes = df_mes[df_mes[col_grupo].str.contains('CUSTOS NA PRESTAÇÃO DE SERVIÇO', na=False, case=False)].copy()
     total_insumos_mes = df_insumos_mes[col_valor].sum() if not df_insumos_mes.empty else 0

@@ -332,7 +332,7 @@ elif pagina == "🏗️ Custos na Prestação de Serviço":
     df_insumos_mes = df_mes[df_mes[col_grupo].str.contains('CUSTOS NA PRESTAÇÃO DE SERVIÇO', na=False, case=False)].copy()
     total_insumos_mes = df_insumos_mes[col_valor].sum() if not df_insumos_mes.empty else 0
     
-    df_insumos_ytd = df_ytd[df_ytd[df_ytd[col_grupo].str.contains('CUSTOS NA PRESTAÇÃO DE SERVIÇO', na=False, case=False)].copy()
+    df_insumos_ytd = df_ytd[df_ytd[col_grupo].str.contains('CUSTOS NA PRESTAÇÃO DE SERVIÇO', na=False, case=False)].copy()
     total_insumos_ytd = df_insumos_ytd[col_valor].sum() if not df_insumos_ytd.empty else 0
     
     cc1, cc2 = st.columns(2)
@@ -360,7 +360,7 @@ elif pagina == "🏗️ Custos na Prestação de Serviço":
     else:
         st.info("Nenhuma despesa de 'Custos na Prestação de Serviço' registrada para esta competência.")
 
-# --- PÁGINA 6: ANÁLISES AVANÇADAS (NOVA PÁGINA - YoY) ---
+# --- PÁGINA 6: ANÁLISES AVANÇADAS (YoY - SEM ERROS) ---
 elif pagina == "🔬 Análises Avançadas":
     with header_col1:
         st.title("Análises Avançadas Interanuais")
@@ -372,14 +372,12 @@ elif pagina == "🔬 Análises Avançadas":
         
     st.markdown("---")
     
-    # Criando as subpáginas em formato de Abas de Alta Performance
     tab_visao, tab_socios, tab_custos = st.tabs([
         "📊 Visão Geral YoY", 
         "👥 Gestão de Sócios YoY", 
         "🏗️ Custos na Prestação YoY"
     ])
     
-    # Calendário base padrão (Garante jan a dez mapeados perfeitamente)
     meses_id = list(range(1, 13))
     meses_nomes = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
     df_calendario = pd.DataFrame({'mes': meses_id, 'mes_nome': meses_nomes})
@@ -390,7 +388,6 @@ elif pagina == "🔬 Análises Avançadas":
         
         metrica_yoy = st.selectbox("Selecione a métrica para comparar:", ["Entradas", "Saídas", "Resultado Líquido"])
         
-        # Agrupamento base anual e mensal
         df_vg = df_base.groupby(['ano', 'mes', 'fluxo_limpo'])[col_valor].sum().unstack(fill_value=0).reset_index()
         df_vg['resultado'] = df_vg['entrada'] - df_vg['saída']
         
@@ -416,7 +413,6 @@ elif pagina == "🔬 Análises Avançadas":
             c_2025, c_2026 = '#93C5FD', '#1D4ED8'
             label_tit = "Comparativo Mensal do Resultado Líquido"
             
-        # Calcular linha de variação percentual (%)
         var_pct = []
         for r25, r26 in zip(v2025, v2026):
             if r25 != 0:
@@ -436,7 +432,6 @@ elif pagina == "🔬 Análises Avançadas":
             text=[formatar_brl(x) if x != 0 else "" for x in v2026], textposition='auto'
         ))
         
-        # Adicionando a linha com variação percentual por cima do gráfico de barras
         fig_vg_yoy.add_trace(go.Scatter(
             x=df_comp['mes_nome'].str.upper(), y=v2026, mode='lines+markers+text',
             name='Variação %', line=dict(color='#F59E0B', width=3, dash='dot'),
@@ -451,7 +446,6 @@ elif pagina == "🔬 Análises Avançadas":
         )
         st.plotly_chart(fig_vg_yoy, use_container_width=True)
         
-        # Tabela de Auditoria Estratégica
         df_exibir_vg = pd.DataFrame({
             'Mês de Referência': df_comp['mes_nome'].str.upper(),
             'Realizado 2025': v2025.apply(formatar_brl),

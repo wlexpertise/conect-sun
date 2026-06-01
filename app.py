@@ -74,12 +74,11 @@ meses_list_abrev = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET
 periodos_unicos = df_raw[['Ano', 'Mês']].drop_duplicates().sort_values(by=['Ano', 'Mês'])
 opcoes_filtro = [f"{meses_pt[row['Mês']]}/{row['Ano']}" for _, row in periodos_unicos.iterrows()]
 
-# 5. BARRA LATERAL (SIDEBAR) COM REINTRODUÇÃO DOS LOGOS
-# Logo do Cliente no topo da Sidebar
-if os.path.exists("conectlogo.png"):
-    st.sidebar.image("conectlogo.png", use_container_width=True)
+# 5. BARRA LATERAL (SIDEBAR) COM SEU LOGO NO TOPO
+if os.path.exists("Logohorizontal.png"):
+    st.sidebar.image("Logohorizontal.png", use_container_width=True)
 else:
-    st.sidebar.subheader("✨ ConectSol")
+    st.sidebar.markdown("### 🌐 WL EXPERTISE")
 
 st.sidebar.markdown("---")
 
@@ -95,20 +94,15 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("**Mês de Referência:**")
 mes_selecionado_str = st.sidebar.selectbox("Mês:", opcoes_filtro, index=len(opcoes_filtro)-1, label_visibility="collapsed")
 
-# Logo do Desenvolvedor fixado no final da Sidebar
-st.sidebar.markdown("<br><br><br>", unsafe_html=True)
-st.sidebar.markdown("---")
-if os.path.exists("Logohorizontal.png"):
-    st.sidebar.image("Logohorizontal.png", use_container_width=True)
-else:
-    st.sidebar.markdown("🌐 **WL EXPERTISE**")
+# Espaçador seguro usando o parâmetro corrigido 'unsafe_allow_html'
+st.sidebar.markdown("<br><br><br>", unsafe_allow_html=True)
 
 # Decodifica a string do filtro em variáveis inteiras
 mes_ref_str, ano_ref_str = mes_selecionado_str.split('/')
 ano_atual = int(ano_ref_str)
 mes_atual = [k for k, v in meses_pt.items() if v == mes_ref_str][0]
 
-# 6. PROCESSAMENTO RESTRITO DES REGRAS DE NEGÓCIO
+# 6. PROCESSAMENTO RESTRITO DAS REGRAS DE NEGÓCIO
 # Saídas: Tudo da coluna de movimentação exceto o grupo TRANSFERÊNCIAS
 df_saidas_validas = df_raw[df_raw['Grupo'] != 'TRANSFERÊNCIAS']
 
@@ -134,22 +128,50 @@ resultado_ytd = entradas_ytd - saidas_ytd
 margem_ytd = (resultado_ytd / entradas_ytd * 100) if entradas_ytd > 0 else 0
 
 
-# 7. FUNÇÕES GLOBAIS DE VISUALIZAÇÃO E TABELAS
-def exibir_painel_cards_globais():
-    st.markdown(f"#### 📅 Resumo Operacional do Mês ({mes_selecionado_str})")
-    c1, c2, c3 = st.columns(3)
-    c1.metric("💰 Entradas (Vendas)", formatar_brl(entradas_mes))
-    c2.metric("💸 Saídas Operacionais", formatar_brl(saidas_mes))
-    delta_mes_str = f"{margem_mes:+.1f}% Margem".replace('.', ',')
-    c3.metric("📊 Resultado Líquido", formatar_brl(resultado_mes), delta=delta_mes_str)
-    
-    st.markdown("#### 🗂️ Resumo Acumulado do Ano (YTD)")
-    cc1, cc2, cc3 = st.columns(3)
-    cc1.metric("📈 Entradas Acumuladas", formatar_brl(entradas_ytd))
-    cc2.metric("📉 Saídas Acumuladas", formatar_brl(saidas_ytd))
-    delta_ytd_str = f"{margem_ytd:+.1f}% Margem".replace('.', ',')
-    cc3.metric("⚖️ Resultado Líquido YTD", formatar_brl(resultado_ytd), delta=delta_ytd_str)
+# 7. FUNÇÕES GLOBAIS DE CABEÇALHO E VISUALIZAÇÃO DE INFORMAÇÕES
+def renderizar_cabecalho_pagina(titulo, subtitulo):
+    """Cria o layout padrão de título e coloca o logo do cliente fixo no canto superior direito"""
+    col_tit, col_log = st.columns([5, 1])
+    with col_tit:
+        st.title(titulo)
+        if subtitulo:
+            st.subheader(subtitulo)
+    with col_log:
+        if os.path.exists("conectlogo.png"):
+            st.image("conectlogo.png", use_container_width=True)
     st.markdown("---")
+
+def exibir_painel_cards_globais(compacto=False):
+    """Exibe os indicadores de forma destacada ou em barra resumida dependendo da tela"""
+    if not compacto:
+        st.markdown(f"#### 📅 Resumo Operacional do Mês ({mes_selecionado_str})")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("💰 Entradas (Vendas)", formatar_brl(entradas_mes))
+        c2.metric("💸 Saídas Operacionais", formatar_brl(saidas_mes))
+        delta_mes_str = f"{margem_mes:+.1f}% Margem".replace('.', ',')
+        c3.metric("📊 Resultado Líquido", formatar_brl(resultado_mes), delta=delta_mes_str)
+        
+        st.markdown("#### 🗂️ Resumo Acumulado do Ano (YTD)")
+        cc1, cc2, cc3 = st.columns(3)
+        cc1.metric("📈 Entradas Acumuladas", formatar_brl(entradas_ytd))
+        cc2.metric("📉 Saídas Acumuladas", formatar_brl(saidas_ytd))
+        delta_ytd_str = f"{margem_ytd:+.1f}% Margem".replace('.', ',')
+        cc3.metric("⚖️ Resultado Líquido YTD", formatar_brl(resultado_ytd), delta=delta_ytd_str)
+        st.markdown("---")
+    else:
+        # Layout compacto horizontal para não poluir as páginas internas
+        cor_m = "#155724" if resultado_mes >= 0 else "#721c24"
+        cor_y = "#155724" if resultado_ytd >= 0 else "#721c24"
+        st.markdown(
+            f"""
+            <div style="background-color: #f8f9fa; padding: 10px 15px; border-radius: 6px; border-left: 4px solid #005a60; margin-bottom: 20px; font-size: 0.88rem; line-height: 1.4;">
+                <b>📅 MÊS ({mes_selecionado_str.upper()}):</b> Entradas: {formatar_brl(entradas_mes)} | Saídas: {formatar_brl(saidas_mes)} | Líquido: <b>{formatar_brl(resultado_mes)}</b> <span style="color:{cor_m}; font-weight:bold;">({margem_mes:+.1f}%)</span>
+                <br>
+                <b>🗂️ ACUMULADO (YTD):</b> Entradas: {formatar_brl(entradas_ytd)} | Saídas: {formatar_brl(saidas_ytd)} | Líquido: <b>{formatar_brl(resultado_ytd)}</b> <span style="color:{cor_y}; font-weight:bold;">({margem_ytd:+.1f}%)</span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
 def construir_tabela_comparativa(grupo_nome, contato_filtro=None):
     df_grupo = df_raw[df_raw['Grupo'] == grupo_nome]
@@ -173,21 +195,16 @@ def construir_tabela_comparativa(grupo_nome, contato_filtro=None):
 # TELA 1: VISÃO GERAL
 # ==========================================
 if paginas[selecao_pagina] == "visao_geral":
-    st.title("Performance Financeira ConectSol")
-    st.subheader(f"Acumulado Estratégico (YTD) até {mes_selecionado_str.upper()}")
-    st.markdown("---")
-    exibir_painel_cards_globais()
+    renderizar_cabecalho_pagina("Performance Financeira ConectSol", f"Acumulado Estratégico (YTD) até {mes_selecionado_str.upper()}")
+    exibir_painel_cards_globais(compacto=False) # Destaque grande completo
 
 
 # ==========================================
 # TELA 2: ANÁLISE DE ENTRADAS
 # ==========================================
 elif paginas[selecao_pagina] == "entradas":
-    st.title("📈 Análise de Entradas (Foco em Vendas)")
-    st.subheader(f"Detalhamento de Recebimentos — Referência {mes_selecionado_str.upper()}")
-    st.markdown("---")
-    
-    exibir_painel_cards_globais()
+    renderizar_cabecalho_pagina("📈 Análise de Entradas", f"Detalhamento de Recebimentos (Vendas) — Referência {mes_selecionado_str.upper()}")
+    exibir_painel_cards_globais(compacto=True) # Informativo discreto
     
     st.markdown("#### 🔍 Listagem Analítica de Vendas do Mês")
     colunas_foco = ['Data de pagamento', 'Contato', 'Descrição', 'Categoria', 'Situação', 'Valor', 'Instituição']
@@ -209,11 +226,8 @@ elif paginas[selecao_pagina] == "entradas":
 # TELA 3: GESTÃO DE SÓCIOS
 # ==========================================
 elif paginas[selecao_pagina] == "socios":
-    st.title("Gestão de Sócios")
-    st.subheader(f"Retiradas Mensais — Consolidação e Detalhamento por Sócio ({mes_selecionado_str.upper()})")
-    st.markdown("---")
-    
-    exibir_painel_cards_globais()
+    renderizar_cabecalho_pagina("Gestão de Sócios", f"Retiradas Mensais — Consolidação e Detalhamento ({mes_selecionado_str.upper()})")
+    exibir_painel_cards_globais(compacto=True) # Informativo discreto
     
     st.markdown("#### 👥 Seleção do Sócio para Análise")
     lista_socios = sorted(list(df_raw[df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS']['Contato'].dropna().unique()))
@@ -317,20 +331,17 @@ elif paginas[selecao_pagina] == "socios":
 # TELA 4: CUSTOS NA PRESTAÇÃO DE SERVIÇO
 # ==========================================
 elif paginas[selecao_pagina] == "custos":
-    st.title("Análise de Custos na Prestação de Serviço")
-    st.subheader(f"Acompanhamento Analítico em {mes_selecionado_str.upper()}")
-    st.markdown("---")
+    renderizar_cabecalho_pagina("Análise de Custos na Prestação de Serviço", f"Acompanhamento Analítico em {mes_selecionado_str.upper()}")
+    exibir_painel_cards_globais(compacto=True) # Informativo discreto
     
-    exibir_painel_cards_globais()
-    
-    # CALCULO RESTRITO DOS METRICS DO GRUPO ESPECÍFICO DE CUSTOS
+    # Cálculos específicos do grupo de Custos
     df_mes_custos = df_raw[(df_raw['Grupo'] == 'CUSTOS NA PRESTAÇÃO DE SERVIÇO') & (df_raw['Ano'] == ano_atual) & (df_raw['Mês'] == mes_atual)]
     custos_mes_atual = df_mes_custos['Valor'].sum()
     
     df_ytd_custos = df_raw[(df_raw['Grupo'] == 'CUSTOS NA PRESTAÇÃO DE SERVIÇO') & (df_raw['Ano'] == ano_atual) & (df_raw['Mês'] <= mes_atual)]
     custos_ytd_atual = df_ytd_custos['Valor'].sum()
     
-    # CARD DE TOTALIZAÇÃO ESPECÍFICO DA TELA
+    # Cards dedicados para os Custos específicos
     st.markdown(f"#### 🛠️ Resumo de Custos Operacionais ({mes_selecionado_str})")
     col_c1, col_c2 = st.columns(2)
     col_c1.metric("📉 Custo no Mês Selecionado", formatar_brl(custos_mes_atual))
@@ -340,7 +351,7 @@ elif paginas[selecao_pagina] == "custos":
     st.markdown("#### 📊 Histórico e Evolução do Custo na Prestação de Serviço")
     df_custos = construir_tabela_comparativa('CUSTOS NA PRESTAÇÃO DE SERVIÇO')
     
-    # Rótulos resumidos para o gráfico de barras de custos
+    # Rótulos resumidos (5K) para o gráfico de barras de custos
     labels_custos_2025 = df_custos['Realizado 2025'].apply(resumir_valor_grafico)
     labels_custos_2026 = df_custos['Realizado 2026'].apply(resumir_valor_grafico)
     

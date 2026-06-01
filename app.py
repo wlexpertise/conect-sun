@@ -192,6 +192,62 @@ def construir_tabela_comparativa(grupo_nome, contato_filtro=None):
 if paginas[selecao_pagina] == "visao_geral":
     renderizar_cabecalho_pagina("Performance Financeira ConectSol", f"Acumulado Estratégico (YTD) até {mes_selecionado_str.upper()}")
     exibir_painel_cards_globais(compacto=False)
+    
+    # Bloco dos Gráficos de Resultado Líquido reintroduzidos aqui
+    st.markdown("#### 📊 Histórico e Evolução do Resultado Líquido")
+    
+    df_ent_comp = construir_tabela_comparativa_df(df_entradas_validas)
+    df_sai_comp = construir_tabela_comparativa_df(df_saidas_validas[df_saidas_validas['Tipo_Movimentacao'] == 'Saída'])
+    
+    df_liq_comp = pd.DataFrame({
+        'Mês': range(1, 13),
+        'Mês / Referência': meses_list_abrev,
+        'Realizado 2025': df_ent_comp['Realizado 2025'].fillna(0) - df_sai_comp['Realizado 2025'].fillna(0),
+        'Realizado 2026': df_ent_comp['Realizado 2026'].fillna(0) - df_sai_comp['Realizado 2026'].fillna(0)
+    })
+    
+    # Limpa projeções vazias para meses futuros de 2026
+    df_liq_comp.loc[df_liq_comp['Mês'] > mes_atual, 'Realizado 2026'] = np.nan
+    
+    labels_liq_2025 = df_liq_comp['Realizado 2025'].apply(resumir_valor_grafico)
+    labels_liq_2026 = df_liq_comp['Realizado 2026'].apply(resumir_valor_grafico)
+    
+    col_gv1, col_gv2 = st.columns([2, 1])
+    with col_gv1:
+        fig_bar_l = go.Figure()
+        fig_bar_l.add_trace(go.Bar(
+            x=df_liq_comp['Mês / Referência'], y=df_liq_comp['Realizado 2025'], name='2025', 
+            marker_color='#a3d9c9', text=labels_liq_2025, textposition='outside'
+        ))
+        fig_bar_l.add_trace(go.Bar(
+            x=df_liq_comp['Mês / Referência'], y=df_liq_comp['Realizado 2026'], name='2026', 
+            marker_color='#006d4e', text=labels_liq_2026, textposition='outside'
+        ))
+        fig_bar_l.update_layout(title="Resultado Líquido Mensal (Ano x Ano)", barmode='group', height=370, margin=dict(l=20, r=20, t=40, b=20))
+        st.plotly_chart(fig_bar_l, use_container_width=True)
+        
+    with col_gv2:
+        ent_ytd_2025 = df_entradas_validas[(df_entradas_validas['Ano'] == 2025) & (df_entradas_validas['Mês'] <= mes_atual)]['Valor'].sum()
+        sai_ytd_2025 = df_saidas_validas[(df_saidas_validas['Tipo_Movimentacao'] == 'Saída') & (df_saidas_validas['Ano'] == 2025) & (df_saidas_validas['Mês'] <= mes_atual)]['Valor'].sum()
+        res_ytd_2025 = ent_ytd_2025 - sai_ytd_2025
+
+        ent_ytd_2026 = df_entradas_validas[(df_entradas_validas['Ano'] == 2026) & (df_entradas_validas['Mês'] <= mes_atual)]['Valor'].sum()
+        sai_ytd_2026 = df_saidas_validas[(df_saidas_validas['Tipo_Movimentacao'] == 'Saída') & (df_saidas_validas['Ano'] == 2026) & (df_saidas_validas['Mês'] <= mes_atual)]['Valor'].sum()
+        res_ytd_2026 = ent_ytd_2026 - sai_ytd_2026
+        
+        fig_bar_ytd = go.Figure()
+        fig_bar_ytd.add_trace(go.Bar(
+            x=['Lucro YTD'], y=[res_ytd_2025], name='2025', 
+            marker_color='#a3d9c9', text=[resumir_valor_grafico(res_ytd_2025)], textposition='outside'
+        ))
+        fig_bar_ytd.add_trace(go.Bar(
+            x=['Lucro YTD'], y=[res_ytd_2026], name='2026', 
+            marker_color='#006d4e', text=[resumir_valor_grafico(res_ytd_2026)], textposition='outside'
+        ))
+        fig_bar_ytd.update_layout(title="Comparativo do Lucro Acumulado (YTD)", barmode='group', height=370, margin=dict(l=20, r=20, t=40, b=20))
+        st.plotly_chart(fig_bar_ytd, use_container_width=True)
+        
+    st.markdown("---")
 
 
 # ==========================================
@@ -201,14 +257,12 @@ elif paginas[selecao_pagina] == "entradas":
     renderizar_cabecalho_pagina("📈 Análise de Entradas", f"Detalhamento de Recebimentos (Vendas) — Referência {mes_selecionado_str.upper()}")
     exibir_painel_cards_globais(compacto=True)
     
-    # Cards de Destaque Exclusivos de Entradas
     st.markdown(f"#### 💰 Destaques de Recebimentos ({mes_selecionado_str})")
     col_ent1, col_ent2 = st.columns(2)
     col_ent1.metric("💰 Total de Entradas no Mês", formatar_brl(entradas_mes))
     col_ent2.metric("📅 Entradas Acumuladas no Ano (YTD)", formatar_brl(entradas_ytd))
     st.markdown("---")
     
-    # Painel Histórico Ano x Ano (Gráficos)
     st.markdown("#### 📊 Histórico e Evolução das Entradas")
     df_entradas_comp = construir_tabela_comparativa_df(df_entradas_validas)
     labels_entradas_2025 = df_entradas_comp['Realizado 2025'].apply(resumir_valor_grafico)
@@ -240,21 +294,6 @@ elif paginas[selecao_pagina] == "entradas":
         
     st.markdown("---")
     
-    # Tabela Histórica Comparativa (Ano x Ano)
-    st.markdown("#### 📋 Tabela de Evolução Analítica de Entradas")
-    df_entradas_comp['Diferença Absoluta'] = df_entradas_comp['Realizado 2026'] - df_entradas_comp['Realizado 2025']
-    df_entradas_comp['Variação %'] = (df_entradas_comp['Diferença Absoluta'] / df_entradas_comp['Realizado 2025']) * 100
-    
-    df_entradas_show = df_entradas_comp.copy()
-    df_entradas_show['Realizado 2025'] = df_entradas_show['Realizado 2025'].apply(lambda x: formatar_brl(x))
-    df_entradas_show['Realizado 2026'] = df_entradas_show['Realizado 2026'].apply(lambda x: formatar_brl(x))
-    df_entradas_show['Diferença Absoluta'] = df_entradas_show['Diferença Absoluta'].apply(lambda x: formatar_brl(x, mostrar_sinal=True))
-    df_entradas_show['Variação %'] = df_entradas_show['Variação %'].apply(lambda x: formatar_pct(x))
-    st.dataframe(df_entradas_show[['Mês / Referência', 'Realizado 2025', 'Realizado 2026', 'Diferença Absoluta', 'Variação %']], use_container_width=True, hide_index=True)
-    
-    st.markdown("---")
-    
-    # Listagem Analítica Mensal
     st.markdown("#### 🔍 Listagem Analítica de Vendas do Mês")
     colunas_foco = ['Data de pagamento', 'Contato', 'Descrição', 'Categoria', 'Situação', 'Valor', 'Instituição']
     colunas_existentes = [c for c in colunas_foco if c in df_mes_entradas.columns]
@@ -267,23 +306,34 @@ elif paginas[selecao_pagina] == "entradas":
         st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
     else:
         st.info(f"Nenhum lançamento de Venda encontrado para o período {mes_selecionado_str}.")
+    
+    st.markdown("---")
+    
+    st.markdown("#### 📋 Tabela de Evolução Analítica de Entradas")
+    df_entradas_comp['Diferença Absoluta'] = df_entradas_comp['Realizado 2026'] - df_entradas_comp['Realizado 2025']
+    df_entradas_comp['Variação %'] = (df_entradas_comp['Diferença Absoluta'] / df_entradas_comp['Realizado 2025']) * 100
+    
+    df_entradas_show = df_entradas_comp.copy()
+    df_entradas_show['Realizado 2025'] = df_entradas_show['Realizado 2025'].apply(lambda x: formatar_brl(x))
+    df_entradas_show['Realizado 2026'] = df_entradas_show['Realizado 2026'].apply(lambda x: formatar_brl(x))
+    df_entradas_show['Diferença Absoluta'] = df_entradas_show['Diferença Absoluta'].apply(lambda x: formatar_brl(x, mostrar_sinal=True))
+    df_entradas_show['Variação %'] = df_entradas_show['Variação %'].apply(lambda x: formatar_pct(x))
+    st.dataframe(df_entradas_show[['Mês / Referência', 'Realizado 2025', 'Realizado 2026', 'Diferença Absoluta', 'Variação %']], use_container_width=True, hide_index=True)
 
 
 # ==========================================
-# TELA 3: ANÁLISE DE SAÍDAS (RECONSTRUÍDA)
+# TELA 3: ANÁLISE DE SAÍDAS
 # ==========================================
 elif paginas[selecao_pagina] == "saidas":
     renderizar_cabecalho_pagina("📉 Análise de Saídas", f"Detalhamento de Saídas Operacionais — Referência {mes_selecionado_str.upper()}")
     exibir_painel_cards_globais(compacto=True)
     
-    # Cards de Destaque Exclusivos de Saídas
     st.markdown(f"#### 💸 Destaques de Despesas e Saídas ({mes_selecionado_str})")
     col_sai1, col_sai2 = st.columns(2)
     col_sai1.metric("💸 Total de Saídas no Mês", formatar_brl(saidas_mes))
     col_sai2.metric("📅 Saídas Acumuladas no Ano (YTD)", formatar_brl(saidas_ytd))
     st.markdown("---")
     
-    # Painel Histórico Ano x Ano (Gráficos)
     st.markdown("#### 📊 Histórico e Evolução das Saídas")
     df_saidas_analise = df_raw[(df_raw['Tipo_Movimentacao'] == 'Saída') & (df_raw['Grupo'] != 'TRANSFERÊNCIAS')]
     df_saidas_comp = construir_tabela_comparativa_df(df_saidas_analise)
@@ -316,21 +366,6 @@ elif paginas[selecao_pagina] == "saidas":
         
     st.markdown("---")
     
-    # Tabela Histórica Comparativa (Ano x Ano)
-    st.markdown("#### 📋 Tabela de Evolução Analítica de Saídas")
-    df_saidas_comp['Diferença Absoluta'] = df_saidas_comp['Realizado 2026'] - df_saidas_comp['Realizado 2025']
-    df_saidas_comp['Variação %'] = (df_saidas_comp['Diferença Absoluta'] / df_saidas_comp['Realizado 2025']) * 100
-    
-    df_saidas_show = df_saidas_comp.copy()
-    df_saidas_show['Realizado 2025'] = df_saidas_show['Realizado 2025'].apply(lambda x: formatar_brl(x))
-    df_saidas_show['Realizado 2026'] = df_saidas_show['Realizado 2026'].apply(lambda x: formatar_brl(x))
-    df_saidas_show['Diferença Absoluta'] = df_saidas_show['Diferença Absoluta'].apply(lambda x: formatar_brl(x, mostrar_sinal=True))
-    df_saidas_show['Variação %'] = df_saidas_show['Variação %'].apply(lambda x: formatar_pct(x))
-    st.dataframe(df_saidas_show[['Mês / Referência', 'Realizado 2025', 'Realizado 2026', 'Diferença Absoluta', 'Variação %']], use_container_width=True, hide_index=True)
-    
-    st.markdown("---")
-    
-    # Listagem Analítica Mensal de Saídas
     st.markdown("#### 🔍 Listagem Analítica de Saídas do Mês")
     colunas_foco = ['Data de pagamento', 'Contato', 'Descrição', 'Categoria', 'Situação', 'Valor', 'Instituição']
     colunas_existentes = [c for c in colunas_foco if c in df_mes_saidas.columns]
@@ -343,6 +378,19 @@ elif paginas[selecao_pagina] == "saidas":
         st.dataframe(df_exibicao_saidas, use_container_width=True, hide_index=True)
     else:
         st.info(f"Nenhum lançamento de Saída encontrado para o período {mes_selecionado_str}.")
+        
+    st.markdown("---")
+    
+    st.markdown("#### 📋 Tabela de Evolução Analítica de Saídas")
+    df_saidas_comp['Diferença Absoluta'] = df_saidas_comp['Realizado 2026'] - df_saidas_comp['Realizado 2025']
+    df_saidas_comp['Variação %'] = (df_saidas_comp['Diferença Absoluta'] / df_saidas_comp['Realizado 2025']) * 100
+    
+    df_saidas_show = df_saidas_comp.copy()
+    df_saidas_show['Realizado 2025'] = df_saidas_show['Realizado 2025'].apply(lambda x: formatar_brl(x))
+    df_saidas_show['Realizado 2026'] = df_saidas_show['Realizado 2026'].apply(lambda x: formatar_brl(x))
+    df_saidas_show['Diferença Absoluta'] = df_saidas_show['Diferença Absoluta'].apply(lambda x: formatar_brl(x, mostrar_sinal=True))
+    df_saidas_show['Variação %'] = df_saidas_show['Variação %'].apply(lambda x: formatar_pct(x))
+    st.dataframe(df_saidas_show[['Mês / Referência', 'Realizado 2025', 'Realizado 2026', 'Diferença Absoluta', 'Variação %']], use_container_width=True, hide_index=True)
 
 
 # ==========================================
@@ -407,7 +455,7 @@ elif paginas[selecao_pagina] == "socios":
         st.markdown("---")
     
     st.markdown(f"#### 📋 Detalhamento de Gastos do Mês ({mes_selecionado_str}) — {socio_selecionado}")
-    df_detalhe_mes = df_raw[(df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS') & (df_raw['Ano'] == ano_atual) & (df_raw['Mês'] == mes_atual)].copy()
+    df_detalhe_mes = df_raw[(df_raw['Grupo'] == 'DESPADAS DOS SÓCIOS') & (df_raw['Ano'] == ano_atual) & (df_raw['Mês'] == mes_atual)].copy()
     
     if socio_selecionado != "Todos os Sócios (Geral)":
         df_detalhe_mes = df_detalhe_mes[df_detalhe_mes['Contato'] == socio_selecionado]
@@ -447,14 +495,12 @@ elif paginas[selecao_pagina] == "custos":
     renderizar_cabecalho_pagina("Análise de Custos na Prestação de Serviço", f"Acompanhamento Analítico em {mes_selecionado_str.upper()}")
     exibir_painel_cards_globais(compacto=True)
     
-    # Cálculos específicos do grupo de Custos
     df_mes_custos = df_raw[(df_raw['Grupo'] == 'CUSTOS NA PRESTAÇÃO DE SERVIÇO') & (df_raw['Ano'] == ano_atual) & (df_raw['Mês'] == mes_atual)]
     custos_mes_atual = df_mes_custos['Valor'].sum()
     
     df_ytd_custos = df_raw[(df_raw['Grupo'] == 'CUSTOS NA PRESTAÇÃO DE SERVIÇO') & (df_raw['Ano'] == ano_atual) & (df_raw['Mês'] <= mes_atual)]
     custos_ytd_atual = df_ytd_custos['Valor'].sum()
     
-    # Cards dedicados para os Custos específicos
     st.markdown(f"#### 🛠️ Resumo de Custos Operacionais ({mes_selecionado_str})")
     col_c1, col_c2 = st.columns(2)
     col_c1.metric("📉 Custo no Mês Selecionado", formatar_brl(custos_mes_atual))
@@ -493,7 +539,6 @@ elif paginas[selecao_pagina] == "custos":
         
     st.markdown("---")
     
-    # NOVA TABELA: Detalhamento Mensal adicionada aqui (entre gráficos e evolução analítica)
     st.markdown(f"#### 🔍 Detalhamento dos Custos do Mês ({mes_selecionado_str})")
     colunas_detalhe = ['Data de pagamento', 'Contato', 'Descrição', 'Categoria', 'Valor']
     colunas_disponiveis_c = [c for c in colunas_detalhe if c in df_mes_custos.columns]
@@ -509,7 +554,6 @@ elif paginas[selecao_pagina] == "custos":
         
     st.markdown("---")
     
-    # Tabela de Evolução Analítica Histórica
     st.markdown("#### 📋 Tabela de Evolução Analítica")
     df_custos['Diferença Absoluta'] = df_custos['Realizado 2026'] - df_custos['Realizado 2025']
     df_custos['Variação %'] = (df_custos['Diferença Absoluta'] / df_custos['Realizado 2025']) * 100

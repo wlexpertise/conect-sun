@@ -198,26 +198,60 @@ elif paginas[selecao_pagina] == "socios":
     # Exibe os indicadores mestre no topo
     exibir_painel_cards_globais()
     
-    # Visão 1: Distribuição Real por Contato/Sócio no mês ativo
-    st.markdown(f"#### 🔍 Distribuição de Desembolsos por Sócio/Contato em {mes_selecionado_str}")
-    df_mes_socios_breakdown = df_raw[(df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS') & (df_raw['Ano'] == ano_atual) & (df_raw['Mês'] == mes_atual)]
+    # Filtro de Seleção do Escopo (Geral ou Sócio Específico)
+    st.markdown("#### 👥 Seleção do Sócio para Análise")
+    lista_socios = sorted(list(df_raw[df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS']['Contato'].dropna().unique()))
+    socio_selecionado = st.selectbox("Escolha uma opção para recalcular a página:", ["Todos os Sócios (Geral)"] + lista_socios)
+    st.markdown("---")
     
-    if not df_mes_socios_breakdown.empty:
-        df_bdown = df_mes_socios_breakdown.groupby('Contato')['Valor'].sum().reset_index().sort_values(by='Valor', ascending=False)
-        df_bdown['Participação %'] = (df_bdown['Valor'] / df_bdown['Valor'].sum() * 100)
-        df_bdown['Valor'] = df_bdown['Valor'].apply(lambda x: formatar_brl(x))
-        df_bdown['Participação %'] = df_bdown['Participação %'].apply(lambda x: f"{x:.1f}%".replace('.', ','))
-        st.dataframe(df_bdown, use_container_width=True, hide_index=True)
+    # TABELA DE DETALHAMENTO DO MÊS SOLICITADA
+    st.markdown(f"#### 📋 Detalhamento de Gastos do Mês ({mes_selecionado_str}) — {socio_selecionado}")
+    
+    df_detalhe_mes = df_raw[
+        (df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS') & 
+        (df_raw['Ano'] == ano_atual) & 
+        (df_raw['Mês'] == mes_atual)
+    ].copy()
+    
+    # Aplica o filtro se não for Geral
+    if socio_selecionado != "Todos os Sócios (Geral)":
+        df_detalhe_mes = df_detalhe_mes[df_detalhe_mes['Contato'] == socio_selecionado]
+        
+    if not df_detalhe_mes.empty:
+        # Colunas requeridas pelo usuário: Data de pagamento, Contato, Valor e Descrição
+        colunas_pedidas = ['Data de pagamento', 'Contato', 'Valor', 'Descrição']
+        colunas_disponiveis = [col for col in colunas_pedidas if col in df_detalhe_mes.columns]
+        
+        df_detalhe_show = df_detalhe_mes[colunas_disponiveis].copy()
+        
+        # Tratamento e formatação de datas
+        if 'Data de pagamento' in df_detalhe_show.columns:
+            df_detalhe_show['Data de pagamento'] = pd.to_datetime(df_detalhe_show['Data de pagamento']).dt.strftime('%d/%m/%Y')
+            df_detalhe_show = df_detalhe_show.sort_values(by='Data de pagamento')
+            
+        # Formatação financeira do valor
+        df_detalhe_show['Valor'] = df_detalhe_show['Valor'].apply(lambda x: formatar_brl(x))
+        
+        st.dataframe(df_detalhe_show, use_container_width=True, hide_index=True)
     else:
-        st.info("Nenhum lançamento de despesa de sócios encontrado para o mês selecionado.")
+        st.info(f"Nenhum lançamento de gasto detalhado encontrado para '{socio_selecionado}' em {mes_selecionado_str}.")
         
     st.markdown("---")
     
-    # Visão 2: Filtro Individual para Gráficos e Histórico Comparativo
-    st.markdown("#### 👥 Filtro de Análise Individualizada")
-    lista_socios = sorted(list(df_raw[df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS']['Contato'].dropna().unique()))
-    socio_selecionado = st.selectbox("Selecione um Sócio específico para recalcular o histórico e gráficos abaixo:", ["Todos os Sócios (Geral)"] + lista_socios)
+    # Se for Geral, exibe também o resumo de participação agrupado por contato
+    if socio_selecionado == "Todos os Sócios (Geral)":
+        st.markdown(f"#### 📊 Resumo de Participação por Sócio no Mês ({mes_selecionado_str})")
+        df_mes_socios_breakdown = df_raw[(df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS') & (df_raw['Ano'] == ano_atual) & (df_raw['Mês'] == mes_atual)]
+        
+        if not df_mes_socios_breakdown.empty:
+            df_bdown = df_mes_socios_breakdown.groupby('Contato')['Valor'].sum().reset_index().sort_values(by='Valor', ascending=False)
+            df_bdown['Participação %'] = (df_bdown['Valor'] / df_bdown['Valor'].sum() * 100)
+            df_bdown['Valor'] = df_bdown['Valor'].apply(lambda x: formatar_brl(x))
+            df_bdown['Participação %'] = df_bdown['Participação %'].apply(lambda x: f"{x:.1f}%".replace('.', ','))
+            st.dataframe(df_bdown, use_container_width=True, hide_index=True)
+            st.markdown("---")
     
+    # Histórico e Gráficos Comparativos
     df_socios = construir_tabela_comparativa('DESPESAS DOS SÓCIOS', contato_filtro=socio_selecionado)
     
     col_graf1, col_graf2 = st.columns([2, 1])
@@ -249,7 +283,7 @@ elif paginas[selecao_pagina] == "socios":
         st.plotly_chart(fig_pie, use_container_width=True)
         
     st.markdown("---")
-    st.markdown(f"#### 📋 Tabela Comparativa Corrente — {socio_selecionado}")
+    st.markdown(f"#### 📋 Tabela Comparativa Histórica — {socio_selecionado}")
     
     df_socios['Diferença Absoluta'] = df_socios['Realizado 2026'] - df_socios['Realizado 2025']
     df_socios['Variação %'] = (df_socios['Diferença Absoluta'] / df_socios['Realizado 2025']) * 100

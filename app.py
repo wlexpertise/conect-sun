@@ -11,12 +11,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Verifica se o arquivo existe na pasta antes de prosseguir
+# Verifica se o arquivo de dados existe na pasta antes de prosseguir
 if not os.path.exists("dados_conectsol.xlsx"):
     st.error("⚠️ O arquivo 'dados_conectsol.xlsx' não foi encontrado na pasta raiz.")
     st.stop()
 
-# 2. FUNÇÕES DE FORMATAÇÃO (PADRÃO FINANCEIRO BRL)
+# 2. FUNÇÕES DE FORMATAÇÃO (PADRÃO FINANCEIRO BRL E GRÁFICOS)
 def formatar_brl(valor, mostrar_sinal=False):
     if pd.isna(valor) or valor is None:
         return "R$ 0,00"
@@ -30,7 +30,6 @@ def formatar_pct(valor):
         return "-"
     return f"{valor:+.1f}%".replace(".", ",")
 
-# Função para resumir os rótulos dos gráficos (ex: 15K, 1,2M)
 def resumir_valor_grafico(v):
     if pd.isna(v) or v == 0:
         return ""
@@ -75,8 +74,13 @@ meses_list_abrev = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET
 periodos_unicos = df_raw[['Ano', 'Mês']].drop_duplicates().sort_values(by=['Ano', 'Mês'])
 opcoes_filtro = [f"{meses_pt[row['Mês']]}/{row['Ano']}" for _, row in periodos_unicos.iterrows()]
 
-# 5. BARRA LATERAL (SIDEBAR)
-st.sidebar.markdown("## 🌐 WL EXPERTISE")
+# 5. BARRA LATERAL (SIDEBAR) COM REINTRODUÇÃO DOS LOGOS
+# Logo do Cliente no topo da Sidebar
+if os.path.exists("conectlogo.png"):
+    st.sidebar.image("conectlogo.png", use_container_width=True)
+else:
+    st.sidebar.subheader("✨ ConectSol")
+
 st.sidebar.markdown("---")
 
 paginas = {
@@ -91,19 +95,27 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("**Mês de Referência:**")
 mes_selecionado_str = st.sidebar.selectbox("Mês:", opcoes_filtro, index=len(opcoes_filtro)-1, label_visibility="collapsed")
 
+# Logo do Desenvolvedor fixado no final da Sidebar
+st.sidebar.markdown("<br><br><br>", unsafe_html=True)
+st.sidebar.markdown("---")
+if os.path.exists("Logohorizontal.png"):
+    st.sidebar.image("Logohorizontal.png", use_container_width=True)
+else:
+    st.sidebar.markdown("🌐 **WL EXPERTISE**")
+
 # Decodifica a string do filtro em variáveis inteiras
 mes_ref_str, ano_ref_str = mes_selecionado_str.split('/')
 ano_atual = int(ano_ref_str)
 mes_atual = [k for k, v in meses_pt.items() if v == mes_ref_str][0]
 
-# 6. PROCESSAMENTO RESTRITO DAS REGRAS DE NEGÓCIO
+# 6. PROCESSAMENTO RESTRITO DES REGRAS DE NEGÓCIO
 # Saídas: Tudo da coluna de movimentação exceto o grupo TRANSFERÊNCIAS
 df_saidas_validas = df_raw[df_raw['Grupo'] != 'TRANSFERÊNCIAS']
 
 # Entradas: Apenas o que for "VENDA" na coluna de classificação
 df_entradas_validas = df_raw[(df_raw['Tipo_Movimentacao'] == 'Entrada') & (df_raw['Tipo_Classificacao'] == 'VENDA')]
 
-# Recortes Mensais
+# Recortes Mensais Gerais
 df_mes_entradas = df_entradas_validas[(df_entradas_validas['Ano'] == ano_atual) & (df_entradas_validas['Mês'] == mes_atual)]
 df_mes_saidas = df_saidas_validas[(df_saidas_validas['Tipo_Movimentacao'] == 'Saída') & (df_saidas_validas['Ano'] == ano_atual) & (df_saidas_validas['Mês'] == mes_atual)]
 
@@ -112,7 +124,7 @@ saidas_mes = df_mes_saidas['Valor'].sum()
 resultado_mes = entradas_mes - saidas_mes
 margem_mes = (resultado_mes / entradas_mes * 100) if entradas_mes > 0 else 0
 
-# Recortes Acumulados (YTD)
+# Recortes Acumulados Gerais (YTD)
 df_ytd_entradas = df_entradas_validas[(df_entradas_validas['Ano'] == ano_atual) & (df_entradas_validas['Mês'] <= mes_atual)]
 df_ytd_saidas = df_saidas_validas[(df_saidas_validas['Tipo_Movimentacao'] == 'Saída') & (df_saidas_validas['Ano'] == ano_atual) & (df_saidas_validas['Mês'] <= mes_atual)]
 
@@ -142,7 +154,6 @@ def exibir_painel_cards_globais():
 def construir_tabela_comparativa(grupo_nome, contato_filtro=None):
     df_grupo = df_raw[df_raw['Grupo'] == grupo_nome]
     
-    # Aplica o filtro de contato/sócio se ele for especificado
     if contato_filtro and contato_filtro != "Todos os Sócios (Geral)":
         df_grupo = df_grupo[df_grupo['Contato'] == contato_filtro]
         
@@ -165,8 +176,6 @@ if paginas[selecao_pagina] == "visao_geral":
     st.title("Performance Financeira ConectSol")
     st.subheader(f"Acumulado Estratégico (YTD) até {mes_selecionado_str.upper()}")
     st.markdown("---")
-    
-    # Exibe os indicadores mestre
     exibir_painel_cards_globais()
 
 
@@ -178,7 +187,6 @@ elif paginas[selecao_pagina] == "entradas":
     st.subheader(f"Detalhamento de Recebimentos — Referência {mes_selecionado_str.upper()}")
     st.markdown("---")
     
-    # Exibe os indicadores mestre no topo
     exibir_painel_cards_globais()
     
     st.markdown("#### 🔍 Listagem Analítica de Vendas do Mês")
@@ -205,19 +213,15 @@ elif paginas[selecao_pagina] == "socios":
     st.subheader(f"Retiradas Mensais — Consolidação e Detalhamento por Sócio ({mes_selecionado_str.upper()})")
     st.markdown("---")
     
-    # Exibe os indicadores mestre no topo
     exibir_painel_cards_globais()
     
-    # Filtro de Seleção do Escopo (Geral ou Sócio Específico)
     st.markdown("#### 👥 Seleção do Sócio para Análise")
     lista_socios = sorted(list(df_raw[df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS']['Contato'].dropna().unique()))
     socio_selecionado = st.selectbox("Escolha uma opção para recalcular a página:", ["Todos os Sócios (Geral)"] + lista_socios)
     st.markdown("---")
     
-    # 1. GRÁFICOS COMPARATIVOS (COM RÓTULOS RESUMIDOS EM "K")
+    # 1. GRÁFICOS COMPARATIVOS (RÓTULOS RESUMIDOS EM "K")
     df_socios = construir_tabela_comparativa('DESPESAS DOS SÓCIOS', contato_filtro=socio_selecionado)
-    
-    # Geração dos rótulos em formato de texto simplificado (ex: 15K)
     labels_2025 = df_socios['Realizado 2025'].apply(resumir_valor_grafico)
     labels_2026 = df_socios['Realizado 2026'].apply(resumir_valor_grafico)
     
@@ -226,26 +230,16 @@ elif paginas[selecao_pagina] == "socios":
     with col_graf1:
         fig_bar = go.Figure()
         fig_bar.add_trace(go.Bar(
-            x=df_socios['Mês / Referência'], 
-            y=df_socios['Realizado 2025'], 
-            name='2025', 
-            marker_color='#9fb1c2',
-            text=labels_2025,
-            textposition='outside'
+            x=df_socios['Mês / Referência'], y=df_socios['Realizado 2025'], name='2025', 
+            marker_color='#9fb1c2', text=labels_2025, textposition='outside'
         ))
         fig_bar.add_trace(go.Bar(
-            x=df_socios['Mês / Referência'], 
-            y=df_socios['Realizado 2026'], 
-            name='2026', 
-            marker_color='#005a60',
-            text=labels_2026,
-            textposition='outside'
+            x=df_socios['Mês / Referência'], y=df_socios['Realizado 2026'], name='2026', 
+            marker_color='#005a60', text=labels_2026, textposition='outside'
         ))
         fig_bar.update_layout(
-            title=f"Comparativo Mensal de Retiradas — {socio_selecionado}", 
-            barmode='group', 
-            height=370, 
-            margin=dict(l=20, r=20, t=40, b=20)
+            title=f"Comparativo Mensal de Retiradas — {socio_selecionado}", barmode='group', 
+            height=370, margin=dict(l=20, r=20, t=40, b=20)
         )
         st.plotly_chart(fig_bar, use_container_width=True)
         
@@ -258,19 +252,15 @@ elif paginas[selecao_pagina] == "socios":
         ytd_socios_2026 = df_socios_filtrado[(df_socios_filtrado['Ano'] == 2026) & (df_socios_filtrado['Mês'] <= mes_atual)]['Valor'].sum()
         
         fig_pie = go.Figure(data=[go.Pie(
-            labels=['Acumulado 2025', 'Acumulado 2026'], 
-            values=[ytd_socios_2025, ytd_socios_2026], 
-            hole=.5,
-            marker=dict(colors=['#9fb1c2', '#005a60']),
-            textinfo='percent+value',
-            textposition='inside'
+            labels=['Acumulado 2025', 'Acumulado 2026'], values=[ytd_socios_2025, ytd_socios_2026], 
+            hole=.5, marker=dict(colors=['#9fb1c2', '#005a60']), textinfo='percent+value', textposition='inside'
         )])
         fig_pie.update_layout(title=f"Acumulado Retiradas (Até {meses_list_abrev[mes_atual-1]})", height=370, margin=dict(l=20, r=20, t=40, b=20))
         st.plotly_chart(fig_pie, use_container_width=True)
         
     st.markdown("---")
     
-    # 2. TABELA RESUMO DE PARTICIPAÇÃO POR SÓCIO NO MÊS (EXIBIDA APÓS OS GRÁFICOS - SE FOR GERAL)
+    # 2. TABELA RESUMO DE PARTICIPAÇÃO POR SÓCIO NO MÊS
     if socio_selecionado == "Todos os Sócios (Geral)":
         st.markdown(f"#### 📊 Resumo de Participação por Sócio no Mês ({mes_selecionado_str})")
         df_mes_socios_breakdown = df_raw[(df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS') & (df_raw['Ano'] == ano_atual) & (df_raw['Mês'] == mes_atual)]
@@ -287,11 +277,8 @@ elif paginas[selecao_pagina] == "socios":
     
     # 3. TABELA DETALHADA DO MÊS
     st.markdown(f"#### 📋 Detalhamento de Gastos do Mês ({mes_selecionado_str}) — {socio_selecionado}")
-    
     df_detalhe_mes = df_raw[
-        (df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS') & 
-        (df_raw['Ano'] == ano_atual) & 
-        (df_raw['Mês'] == mes_atual)
+        (df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS') & (df_raw['Ano'] == ano_atual) & (df_raw['Mês'] == mes_atual)
     ].copy()
     
     if socio_selecionado != "Todos os Sócios (Geral)":
@@ -300,7 +287,6 @@ elif paginas[selecao_pagina] == "socios":
     if not df_detalhe_mes.empty:
         colunas_pedidas = ['Data de pagamento', 'Contato', 'Valor', 'Descrição']
         colunas_disponiveis = [col for col in colunas_pedidas if col in df_detalhe_mes.columns]
-        
         df_detalhe_show = df_detalhe_mes[colunas_disponiveis].copy()
         
         if 'Data de pagamento' in df_detalhe_show.columns:
@@ -314,9 +300,8 @@ elif paginas[selecao_pagina] == "socios":
         
     st.markdown("---")
     
-    # 4. TABELA COMPARATIVA HISTÓRICA ANO X ANO (POR ÚLTIMO)
+    # 4. TABELA COMPARATIVA HISTÓRICA ANO X ANO
     st.markdown(f"#### 📋 Tabela Comparativa Histórica — {socio_selecionado}")
-    
     df_socios['Diferença Absoluta'] = df_socios['Realizado 2026'] - df_socios['Realizado 2025']
     df_socios['Variação %'] = (df_socios['Diferença Absoluta'] / df_socios['Realizado 2025']) * 100
     
@@ -325,7 +310,6 @@ elif paginas[selecao_pagina] == "socios":
     df_show['Realizado 2026'] = df_show['Realizado 2026'].apply(lambda x: formatar_brl(x))
     df_show['Diferença Absoluta'] = df_show['Diferença Absoluta'].apply(lambda x: formatar_brl(x, mostrar_sinal=True))
     df_show['Variação %'] = df_show['Variação %'].apply(lambda x: formatar_pct(x))
-    
     st.dataframe(df_show[['Mês / Referência', 'Realizado 2025', 'Realizado 2026', 'Diferença Absoluta', 'Variação %']], use_container_width=True, hide_index=True)
 
 
@@ -337,19 +321,45 @@ elif paginas[selecao_pagina] == "custos":
     st.subheader(f"Acompanhamento Analítico em {mes_selecionado_str.upper()}")
     st.markdown("---")
     
-    # Exibe os indicadores mestre no topo
     exibir_painel_cards_globais()
+    
+    # CALCULO RESTRITO DOS METRICS DO GRUPO ESPECÍFICO DE CUSTOS
+    df_mes_custos = df_raw[(df_raw['Grupo'] == 'CUSTOS NA PRESTAÇÃO DE SERVIÇO') & (df_raw['Ano'] == ano_atual) & (df_raw['Mês'] == mes_atual)]
+    custos_mes_atual = df_mes_custos['Valor'].sum()
+    
+    df_ytd_custos = df_raw[(df_raw['Grupo'] == 'CUSTOS NA PRESTAÇÃO DE SERVIÇO') & (df_raw['Ano'] == ano_atual) & (df_raw['Mês'] <= mes_atual)]
+    custos_ytd_atual = df_ytd_custos['Valor'].sum()
+    
+    # CARD DE TOTALIZAÇÃO ESPECÍFICO DA TELA
+    st.markdown(f"#### 🛠️ Resumo de Custos Operacionais ({mes_selecionado_str})")
+    col_c1, col_c2 = st.columns(2)
+    col_c1.metric("📉 Custo no Mês Selecionado", formatar_brl(custos_mes_atual))
+    col_c2.metric("📅 Custo Acumulado no Ano (YTD)", formatar_brl(custos_ytd_atual))
+    st.markdown("---")
         
-    st.markdown("#### 🛠️ Custos na Prestação de Serviço — Mensalidades")
+    st.markdown("#### 📊 Histórico e Evolução do Custo na Prestação de Serviço")
     df_custos = construir_tabela_comparativa('CUSTOS NA PRESTAÇÃO DE SERVIÇO')
+    
+    # Rótulos resumidos para o gráfico de barras de custos
+    labels_custos_2025 = df_custos['Realizado 2025'].apply(resumir_valor_grafico)
+    labels_custos_2026 = df_custos['Realizado 2026'].apply(resumir_valor_grafico)
     
     col_g1, col_g2 = st.columns([2, 1])
     
     with col_g1:
         fig_bar_c = go.Figure()
-        fig_bar_c.add_trace(go.Bar(x=df_custos['Mês / Referência'], y=df_custos['Realizado 2025'], name='2025', marker_color='#ff9999'))
-        fig_bar_c.add_trace(go.Bar(x=df_custos['Mês / Referência'], y=df_custos['Realizado 2026'], name='2026', marker_color='#17a2b8'))
-        fig_bar_c.update_layout(title="Histórico Mensal de Custos", barmode='group', height=350, margin=dict(l=20, r=20, t=40, b=20))
+        fig_bar_c.add_trace(go.Bar(
+            x=df_custos['Mês / Referência'], y=df_custos['Realizado 2025'], name='2025', 
+            marker_color='#ff9999', text=labels_custos_2025, textposition='outside'
+        ))
+        fig_bar_c.add_trace(go.Bar(
+            x=df_custos['Mês / Referência'], y=df_custos['Realizado 2026'], name='2026', 
+            marker_color='#17a2b8', text=labels_custos_2026, textposition='outside'
+        ))
+        fig_bar_c.update_layout(
+            title="Histórico Mensal de Custos (Ano x Ano)", barmode='group', 
+            height=370, margin=dict(l=20, r=20, t=40, b=20)
+        )
         st.plotly_chart(fig_bar_c, use_container_width=True)
         
     with col_g2:
@@ -357,14 +367,10 @@ elif paginas[selecao_pagina] == "custos":
         ytd_custos_2026 = df_raw[(df_raw['Grupo'] == 'CUSTOS NA PRESTAÇÃO DE SERVIÇO') & (df_raw['Ano'] == 2026) & (df_raw['Mês'] <= mes_atual)]['Valor'].sum()
         
         fig_pie_c = go.Figure(data=[go.Pie(
-            labels=['Acumulado 2025', 'Acumulado 2026'], 
-            values=[ytd_custos_2025, ytd_custos_2026], 
-            hole=.5,
-            marker=dict(colors=['#ff9999', '#17a2b8']),
-            textinfo='percent+value',
-            textposition='inside'
+            labels=['Acumulado 2025', 'Acumulado 2026'], values=[ytd_custos_2025, ytd_custos_2026], 
+            hole=.5, marker=dict(colors=['#ff9999', '#17a2b8']), textinfo='percent+value', textposition='inside'
         )])
-        fig_pie_c.update_layout(title=f"Custos Acumulados (Até {meses_list_abrev[mes_atual-1]})", height=350, margin=dict(l=20, r=20, t=40, b=20))
+        fig_pie_c.update_layout(title=f"Custos Acumulados (Até {meses_list_abrev[mes_atual-1]})", height=370, margin=dict(l=20, r=20, t=40, b=20))
         st.plotly_chart(fig_pie_c, use_container_width=True)
         
     st.markdown("---")

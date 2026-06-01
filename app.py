@@ -204,7 +204,40 @@ elif paginas[selecao_pagina] == "socios":
     socio_selecionado = st.selectbox("Escolha uma opção para recalcular a página:", ["Todos os Sócios (Geral)"] + lista_socios)
     st.markdown("---")
     
-    # TABELA DE DETALHAMENTO DO MÊS SOLICITADA
+    # 1. GRÁFICOS COMPARATIVOS (POSICIONADOS LOGO ABAIXO DO FILTRO)
+    df_socios = construir_tabela_comparativa('DESPESAS DOS SÓCIOS', contato_filtro=socio_selecionado)
+    
+    col_graf1, col_graf2 = st.columns([2, 1])
+    
+    with col_graf1:
+        fig_bar = go.Figure()
+        fig_bar.add_trace(go.Bar(x=df_socios['Mês / Referência'], y=df_socios['Realizado 2025'], name='2025', marker_color='#9fb1c2'))
+        fig_bar.add_trace(go.Bar(x=df_socios['Mês / Referência'], y=df_socios['Realizado 2026'], name='2026', marker_color='#005a60'))
+        fig_bar.update_layout(title=f"Comparativo Mensal de Retiradas — {socio_selecionado}", barmode='group', height=350, margin=dict(l=20, r=20, t=40, b=20))
+        st.plotly_chart(fig_bar, use_container_width=True)
+        
+    with col_graf2:
+        df_socios_filtrado = df_raw[df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS']
+        if socio_selecionado != "Todos os Sócios (Geral)":
+            df_socios_filtrado = df_socios_filtrado[df_socios_filtrado['Contato'] == socio_selecionado]
+            
+        ytd_socios_2025 = df_socios_filtrado[(df_socios_filtrado['Ano'] == 2025) & (df_socios_filtrado['Mês'] <= mes_atual)]['Valor'].sum()
+        ytd_socios_2026 = df_socios_filtrado[(df_socios_filtrado['Ano'] == 2026) & (df_socios_filtrado['Mês'] <= mes_atual)]['Valor'].sum()
+        
+        fig_pie = go.Figure(data=[go.Pie(
+            labels=['Acumulado 2025', 'Acumulado 2026'], 
+            values=[ytd_socios_2025, ytd_socios_2026], 
+            hole=.5,
+            marker=dict(colors=['#9fb1c2', '#005a60']),
+            textinfo='percent+value',
+            textposition='inside'
+        )])
+        fig_pie.update_layout(title=f"Acumulado Retiradas (Até {meses_list_abrev[mes_atual-1]})", height=350, margin=dict(l=20, r=20, t=40, b=20))
+        st.plotly_chart(fig_pie, use_container_width=True)
+        
+    st.markdown("---")
+    
+    # 2. TABELA DE DETALHAMENTO DO MÊS (DEPOIS DOS GRÁFICOS E ANTES DO COMPARATIVO HISTÓRICO)
     st.markdown(f"#### 📋 Detalhamento de Gastos do Mês ({mes_selecionado_str}) — {socio_selecionado}")
     
     df_detalhe_mes = df_raw[
@@ -251,38 +284,7 @@ elif paginas[selecao_pagina] == "socios":
             st.dataframe(df_bdown, use_container_width=True, hide_index=True)
             st.markdown("---")
     
-    # Histórico e Gráficos Comparativos
-    df_socios = construir_tabela_comparativa('DESPESAS DOS SÓCIOS', contato_filtro=socio_selecionado)
-    
-    col_graf1, col_graf2 = st.columns([2, 1])
-    
-    with col_graf1:
-        fig_bar = go.Figure()
-        fig_bar.add_trace(go.Bar(x=df_socios['Mês / Referência'], y=df_socios['Realizado 2025'], name='2025', marker_color='#9fb1c2'))
-        fig_bar.add_trace(go.Bar(x=df_socios['Mês / Referência'], y=df_socios['Realizado 2026'], name='2026', marker_color='#005a60'))
-        fig_bar.update_layout(title=f"Comparativo Mensal de Retiradas — {socio_selecionado}", barmode='group', height=350, margin=dict(l=20, r=20, t=40, b=20))
-        st.plotly_chart(fig_bar, use_container_width=True)
-        
-    with col_graf2:
-        df_socios_filtrado = df_raw[df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS']
-        if socio_selecionado != "Todos os Sócios (Geral)":
-            df_socios_filtrado = df_socios_filtrado[df_socios_filtrado['Contato'] == socio_selecionado]
-            
-        ytd_socios_2025 = df_socios_filtrado[(df_socios_filtrado['Ano'] == 2025) & (df_socios_filtrado['Mês'] <= mes_atual)]['Valor'].sum()
-        ytd_socios_2026 = df_socios_filtrado[(df_socios_filtrado['Ano'] == 2026) & (df_socios_filtrado['Mês'] <= mes_atual)]['Valor'].sum()
-        
-        fig_pie = go.Figure(data=[go.Pie(
-            labels=['Acumulado 2025', 'Acumulado 2026'], 
-            values=[ytd_socios_2025, ytd_socios_2026], 
-            hole=.5,
-            marker=dict(colors=['#9fb1c2', '#005a60']),
-            textinfo='percent+value',
-            textposition='inside'
-        )])
-        fig_pie.update_layout(title=f"Acumulado Retiradas (Até {meses_list_abrev[mes_atual-1]})", height=350, margin=dict(l=20, r=20, t=40, b=20))
-        st.plotly_chart(fig_pie, use_container_width=True)
-        
-    st.markdown("---")
+    # 3. TABELA COMPARATIVA HISTÓRICA ANO X ANO (AO FINAL DA PÁGINA)
     st.markdown(f"#### 📋 Tabela Comparativa Histórica — {socio_selecionado}")
     
     df_socios['Diferença Absoluta'] = df_socios['Realizado 2026'] - df_socios['Realizado 2025']

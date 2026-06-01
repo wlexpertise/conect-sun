@@ -193,7 +193,6 @@ if paginas[selecao_pagina] == "visao_geral":
     renderizar_cabecalho_pagina("Performance Financeira ConectSol", f"Acumulado Estratégico (YTD) até {mes_selecionado_str.upper()}")
     exibir_painel_cards_globais(compacto=False)
     
-    # Bloco dos Gráficos de Resultado Líquido reintroduzidos aqui
     st.markdown("#### 📊 Histórico e Evolução do Resultado Líquido")
     
     df_ent_comp = construir_tabela_comparativa_df(df_entradas_validas)
@@ -206,7 +205,6 @@ if paginas[selecao_pagina] == "visao_geral":
         'Realizado 2026': df_ent_comp['Realizado 2026'].fillna(0) - df_sai_comp['Realizado 2026'].fillna(0)
     })
     
-    # Limpa projeções vazias para meses futuros de 2026
     df_liq_comp.loc[df_liq_comp['Mês'] > mes_atual, 'Realizado 2026'] = np.nan
     
     labels_liq_2025 = df_liq_comp['Realizado 2025'].apply(resumir_valor_grafico)
@@ -455,7 +453,8 @@ elif paginas[selecao_pagina] == "socios":
         st.markdown("---")
     
     st.markdown(f"#### 📋 Detalhamento de Gastos do Mês ({mes_selecionado_str}) — {socio_selecionado}")
-    df_detalhe_mes = df_raw[(df_raw['Grupo'] == 'DESPADAS DOS SÓCIOS') & (df_raw['Ano'] == ano_atual) & (df_raw['Mês'] == mes_atual)].copy()
+    # FIX: Correção de digitacao de DESPADAS para DESPESAS abaixo
+    df_detalhe_mes = df_raw[(df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS') & (df_raw['Ano'] == ano_atual) & (df_raw['Mês'] == mes_atual)].copy()
     
     if socio_selecionado != "Todos os Sócios (Geral)":
         df_detalhe_mes = df_detalhe_mes[df_detalhe_mes['Contato'] == socio_selecionado]

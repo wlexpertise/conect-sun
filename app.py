@@ -13,10 +13,10 @@ st.set_page_config(
 
 # Verifica se o arquivo existe na pasta antes de prosseguir
 if not os.path.exists("dados_conectsol.xlsx"):
-    st.error("⚠️ O arquivo 'dados_conectsol.xlsx' não foi encontrado na pasta raiz do projeto. Por favor, verifique o nome e local do arquivo.")
+    st.error("⚠️ O arquivo 'dados_conectsol.xlsx' não foi encontrado na pasta raiz.")
     st.stop()
 
-# 2. FUNÇÕES DE FORMATÇÃO CONFORME PADRÃO FINANCEIRO BRASILEIRO
+# 2. FUNÇÕES DE FORMATAÇÃO (PADRÃO FINANCEIRO BRL)
 def formatar_brl(valor, mostrar_sinal=False):
     if pd.isna(valor) or valor is None:
         return "R$ 0,00"
@@ -30,12 +30,10 @@ def formatar_pct(valor):
         return "-"
     return f"{valor:+.1f}%".replace(".", ",")
 
-# 3. CARREGAMENTO DOS DADOS DIRETAMENTE DA PLANILHA
+# 3. CARREGAMENTO DOS DADOS (ABA 'DADOS')
 @st.cache_data
 def carregar_dados():
-    # Lê a aba 'DADOS' do arquivo Excel
     df = pd.read_excel("dados_conectsol.xlsx", sheet_name="DADOS")
-    # Limpa linhas que não possuem informações de Ano ou Mês
     df = df.dropna(subset=['Ano', 'Mês'])
     df['Mês'] = df['Mês'].astype(int)
     df['Ano'] = df['Ano'].astype(int)
@@ -43,19 +41,18 @@ def carregar_dados():
 
 df_raw = carregar_dados()
 
-# 4. MAPEAMENTO E CONSTRUÇÃO DO FILTRO DE DATAS DINÂMICO
+# 4. CONSTRUÇÃO DO FILTRO DINÂMICO DE DATAS (DESDE JAN/2025)
 meses_pt = {1: 'jan', 2: 'fev', 3: 'mar', 4: 'abr', 5: 'mai', 6: 'jun',
             7: 'jul', 8: 'ago', 9: 'set', 10: 'out', 11: 'nov', 12: 'dez'}
 meses_list_abrev = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ']
 
-# Extrai e ordena de forma cronológica todos os anos e meses presentes na planilha
+# Agrupa e ordena cronologicamente os períodos disponíveis
 periodos_unicos = df_raw[['Ano', 'Mês']].drop_duplicates().sort_values(by=['Ano', 'Mês'])
 opcoes_filtro = [f"{meses_pt[row['Mês']]}/{row['Ano']}" for _, row in periodos_unicos.iterrows()]
 
 # 5. BARRA LATERAL (SIDEBAR)
 st.sidebar.markdown("## 🌐 WL EXPERTISE")
 st.sidebar.markdown("---")
-st.sidebar.markdown("**Navegação Estratégica:**")
 
 paginas = {
     "🚀 Visão Geral (YTD)": "visao_geral",
@@ -63,40 +60,45 @@ paginas = {
     "👥 Gestão de Sócios": "socios",
     "🛠️ Custos na Prestação de Serviço": "custos"
 }
-selecao_pagina = st.sidebar.radio("Selecione a tela:", list(paginas.keys()), label_visibility="collapsed")
+selecao_pagina = st.sidebar.radio("Selecione a tela:", list(paginas.keys()))
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("**Selecione o Mês de Referência:**")
-# Define o último mês disponível na planilha como a seleção padrão inicial
+st.sidebar.markdown("**Mês de Referência:**")
 mes_selecionado_str = st.sidebar.selectbox("Mês:", opcoes_filtro, index=len(opcoes_filtro)-1, label_visibility="collapsed")
 
-# Traduz a string selecionada (ex: 'mai/2026') de volta para inteiros de Mês e Ano
+# Decodifica a string do filtro em variáveis inteiras
 mes_ref_str, ano_ref_str = mes_selecionado_str.split('/')
 ano_atual = int(ano_ref_str)
 mes_atual = [k for k, v in meses_pt.items() if v == mes_ref_str][0]
 
-# 6. PROCESSAMENTO DOS DADOS FILTRADOS (MÊS ATUAL E ACUMULADO YTD)
-# Nota: Filtros padrão de finanças removem o grupo 'TRANSFERÊNCIAS' para evitar dupla contagem de movimentações internas
-df_sem_transf = df_raw[df_raw['Grupo'] != 'TRANSFERÊNCIAS']
+# 6. PROCESSAMENTO RESTRITO DAS REGRAS DE NEGÓCIO
+# Saídas: Tudo exceto TRANSFERÊNCIAS
+df_saidas_validas = df_raw[df_raw['Grupo'] != 'TRANSFERÊNCIAS']
 
-df_mes = df_sem_transf[(df_sem_transf['Ano'] == ano_atual) & (df_sem_transf['Mês'] == mes_atual)]
-df_ytd = df_sem_transf[(df_sem_transf['Ano'] == ano_atual) & (df_sem_transf['Mês'] <= mes_atual)]
+# Entradas: Apenas o que for "VENDA" na coluna Tipo.1 (Coluna P)
+df_entradas_validas = df_raw[(df_raw['Tipo'] == 'Entrada') & (df_raw['Tipo.1'] == 'VENDA')]
 
-# Cálculos Mensais
-entradas_mes = df_mes[df_mes['Tipo'] == 'Entrada']['Valor'].sum()
-saidas_mes = df_mes[df_mes['Tipo'] == 'Saída']['Valor'].sum()
+# Recortes Mensais
+df_mes_entradas = df_entradas_validas[(df_entradas_validas['Ano'] == ano_atual) & (df_entradas_validas['Mês'] == mes_atual)]
+df_mes_saidas = df_saidas_validas[(df_saidas_validas['Tipo'] == 'Saída') & (df_saidas_validas['Ano'] == ano_atual) & (df_saidas_validas['Mês'] == mes_atual)]
+
+entradas_mes = df_mes_entradas['Valor'].sum()
+saidas_mes = df_mes_saidas['Valor'].sum()
 resultado_mes = entradas_mes - saidas_mes
 margem_mes = (resultado_mes / entradas_mes * 100) if entradas_mes > 0 else 0
 
-# Cálculos Acumulados (YTD)
-entradas_ytd = df_ytd[df_ytd['Tipo'] == 'Entrada']['Valor'].sum()
-saidas_ytd = df_ytd[df_ytd['Tipo'] == 'Saída']['Valor'].sum()
+# Recortes Acumulados (YTD)
+df_ytd_entradas = df_entradas_validas[(df_entradas_validas['Ano'] == ano_atual) & (df_entradas_validas['Mês'] <= mes_atual)]
+df_ytd_saidas = df_saidas_validas[(df_saidas_validas['Tipo'] == 'Saída') & (df_saidas_validas['Ano'] == ano_atual) & (df_saidas_validas['Mês'] <= mes_atual)]
+
+entradas_ytd = df_ytd_entradas['Valor'].sum()
+saidas_ytd = df_ytd_saidas['Valor'].sum()
 resultado_ytd = entradas_ytd - saidas_ytd
 margem_ytd = (resultado_ytd / entradas_ytd * 100) if entradas_ytd > 0 else 0
 
 
 # ==========================================
-# PAG 1: VISÃO GERAL
+# TELA 1: VISÃO GERAL
 # ==========================================
 if paginas[selecao_pagina] == "visao_geral":
     st.title("Performance Financeira ConectSol")
@@ -105,17 +107,16 @@ if paginas[selecao_pagina] == "visao_geral":
     
     st.markdown(f"#### Resumo do Mês ({mes_selecionado_str})")
     c1, c2, c3 = st.columns(3)
-    c1.metric("💰 Entradas no Mês", formatar_brl(entradas_mes))
-    c2.metric("💸 Saídas no Mês", formatar_brl(saidas_mes))
+    c1.metric("💰 Entradas (Vendas)", formatar_brl(entradas_mes))
+    c2.metric("💸 Saídas operacionais", formatar_brl(saidas_mes))
     
-    # O sinal de mais ou menos na string do delta controla nativamente a cor e seta do componente
     delta_mes_str = f"{margem_mes:+.1f}% Margem".replace('.', ',')
-    c3.metric("📊 Resultado do Mês", formatar_brl(resultado_mes), delta=delta_mes_str)
+    c3.metric("📊 Resultado Líquido", formatar_brl(resultado_mes), delta=delta_mes_str)
     
     st.markdown("---")
-    st.markdown("#### Resumo Acumulado (YTD)")
+    st.markdown("#### Resumo Acumulado do Ano (YTD)")
     cc1, cc2, cc3 = st.columns(3)
-    cc1.metric("📈 Entradas Acumuladas", formatar_brl(entradas_ytd))
+    cc1.metric("📈 Entradas Acumuladas (Vendas)", formatar_brl(entradas_ytd))
     cc2.metric("📉 Saídas Acumuladas", formatar_brl(saidas_ytd))
     
     delta_ytd_str = f"{margem_ytd:+.1f}% Margem".replace('.', ',')
@@ -123,42 +124,36 @@ if paginas[selecao_pagina] == "visao_geral":
 
 
 # ==========================================
-# PAG 2: ANÁLISE DE ENTRADAS
+# TELA 2: ANÁLISE DE ENTRADAS
 # ==========================================
 elif paginas[selecao_pagina] == "entradas":
-    st.title("📈 Análise de Entradas")
-    st.subheader(f"Extrato de Lançamentos Recebidos — Referência {mes_selecionado_str.upper()}")
+    st.title("📈 Análise de Entradas (Foco em Vendas)")
+    st.subheader(f"Lançamentos classificados como VENDA — Referência {mes_selecionado_str.upper()}")
     st.markdown("---")
     
-    # Filtra apenas registros de entradas reais da planilha para o mês e ano selecionados
-    df_entradas_reais = df_raw[(df_raw['Tipo'] == 'Entrada') & (df_raw['Ano'] == ano_atual) & (df_raw['Mês'] == mes_atual)].copy()
-    
     colunas_foco = ['Data de pagamento', 'Contato', 'Descrição', 'Categoria', 'Situação', 'Valor', 'Instituição']
-    colunas_existentes = [c for c in colunas_foco if c in df_entradas_reais.columns]
+    colunas_existentes = [c for c in colunas_foco if c in df_mes_entradas.columns]
     
-    df_exibicao = df_entradas_reais[colunas_existentes].copy()
+    df_exibicao = df_mes_entradas[colunas_existentes].copy()
     
     if not df_exibicao.empty:
-        # Formata a coluna de data caso esteja em formato datetime do pandas
         if 'Data de pagamento' in df_exibicao.columns:
             df_exibicao['Data de pagamento'] = pd.to_datetime(df_exibicao['Data de pagamento']).dt.strftime('%d/%m/%Y')
         
-        # Formata os valores monetários na tabela
         df_exibicao['Valor'] = df_exibicao['Valor'].apply(lambda x: formatar_brl(x))
         st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
     else:
-        st.info(f"Nenhum lançamento de Entrada encontrado para o período {mes_selecionado_str}.")
+        st.info(f"Nenhum lançamento de Venda encontrado para o período {mes_selecionado_str}.")
 
 
 # ==========================================
-# PAG 3: GESTÃO DE SÓCIOS
+# TELA 3: GESTÃO DE SÓCIOS
 # ==========================================
 elif paginas[selecao_pagina] == "socios":
     st.title("Gestão de Sócios")
     st.subheader(f"Retiradas Mensais — Consolidação de Todos os Sócios ({mes_selecionado_str.upper()})")
     st.markdown("---")
     
-    # Função auxiliar interna para pivotar qualquer grupo de forma dinâmica
     def construir_tabela_comparativa(grupo_nome):
         df_grupo = df_raw[df_raw['Grupo'] == grupo_nome]
         pivot = df_grupo.pivot_table(index='Mês', columns='Ano', values='Valor', aggfunc='sum').reset_index()
@@ -184,7 +179,6 @@ elif paginas[selecao_pagina] == "socios":
         st.plotly_chart(fig_bar, use_container_width=True)
         
     with col_graf2:
-        # Calcula os valores acumulados (YTD) dinamicamente até o mês selecionado para o gráfico de rosca
         ytd_socios_2025 = df_raw[(df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS') & (df_raw['Ano'] == 2025) & (df_raw['Mês'] <= mes_atual)]['Valor'].sum()
         ytd_socios_2026 = df_raw[(df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS') & (df_raw['Ano'] == 2026) & (df_raw['Mês'] <= mes_atual)]['Valor'].sum()
         
@@ -202,7 +196,6 @@ elif paginas[selecao_pagina] == "socios":
     st.markdown("---")
     st.markdown("#### Tabela Comparativa de Retiradas")
     
-    # Cálculos matemáticos automáticos diretos do DataFrame
     df_socios['Diferença Absoluta'] = df_socios['Realizado 2026'] - df_socios['Realizado 2025']
     df_socios['Variação %'] = (df_socios['Diferença Absoluta'] / df_socios['Realizado 2025']) * 100
     
@@ -216,17 +209,16 @@ elif paginas[selecao_pagina] == "socios":
 
 
 # ==========================================
-# PAG 4: CUSTOS NA PRESTAÇÃO DE SERVIÇO
+# TELA 4: CUSTOS NA PRESTAÇÃO DE SERVIÇO
 # ==========================================
 elif paginas[selecao_pagina] == "custos":
     st.title("Análise de Custos na Prestação de Serviço")
     st.subheader(f"Acompanhamento Analítico em {mes_selecionado_str.upper()}")
     st.markdown("---")
     
-    # Exibe os mesmos KPIs do mês selecionado estruturados na visão de custos
     c1, c2, c3 = st.columns(3)
-    c1.metric("💰 Entradas no Mês", formatar_brl(entradas_mes))
-    c2.metric("💸 Saídas no Mês", formatar_brl(saiders_mes if 'saiders_mes' in locals() else saidas_mes))
+    c1.metric("💰 Entradas (Vendas) no Mês", formatar_brl(entradas_mes))
+    c2.metric("💸 Saídas no Mês", formatar_brl(saidas_mes))
     delta_c_str = f"{margem_mes:+.1f}% Margem".replace('.', ',')
     c3.metric("📊 Resultado do Mês", formatar_brl(resultado_mes), delta=delta_c_str)
         
@@ -245,7 +237,6 @@ elif paginas[selecao_pagina] == "custos":
         st.plotly_chart(fig_bar_c, use_container_width=True)
         
     with col_g2:
-        # Calcula os custos acumulados YTD dinamicamente
         ytd_custos_2025 = df_raw[(df_raw['Grupo'] == 'CUSTOS NA PRESTAÇÃO DE SERVIÇO') & (df_raw['Ano'] == 2025) & (df_raw['Mês'] <= mes_atual)]['Valor'].sum()
         ytd_custos_2026 = df_raw[(df_raw['Grupo'] == 'CUSTOS NA PRESTAÇÃO DE SERVIÇO') & (df_raw['Ano'] == 2026) & (df_raw['Mês'] <= mes_atual)]['Valor'].sum()
         

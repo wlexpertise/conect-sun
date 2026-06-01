@@ -111,7 +111,8 @@ saidas_ytd = df_ytd_saidas['Valor'].sum()
 resultado_ytd = entradas_ytd - saidas_ytd
 margem_ytd = (resultado_ytd / entradas_ytd * 100) if entradas_ytd > 0 else 0
 
-# 7. FUNÇÃO GLOBAL PARA EXIBIÇÃO DOS CARDS FINANCEIROS (MENSAL E YTD)
+
+# 7. FUNÇÕES GLOBAIS DE VISUALIZAÇÃO E TABELAS
 def exibir_painel_cards_globais():
     st.markdown(f"#### 📅 Resumo Operacional do Mês ({mes_selecionado_str})")
     c1, c2, c3 = st.columns(3)
@@ -127,6 +128,24 @@ def exibir_painel_cards_globais():
     delta_ytd_str = f"{margem_ytd:+.1f}% Margem".replace('.', ',')
     cc3.metric("⚖️ Resultado Líquido YTD", formatar_brl(resultado_ytd), delta=delta_ytd_str)
     st.markdown("---")
+
+def construir_tabela_comparativa(grupo_nome, contato_filtro=None):
+    df_grupo = df_raw[df_raw['Grupo'] == grupo_nome]
+    
+    # Aplica o filtro de contato/sócio se ele for especificado
+    if contato_filtro and contato_filtro != "Todos os Sócios (Geral)":
+        df_grupo = df_grupo[df_grupo['Contato'] == contato_filtro]
+        
+    pivot = df_grupo.pivot_table(index='Mês', columns='Ano', values='Valor', aggfunc='sum').reset_index()
+    
+    all_months = pd.DataFrame({'Mês': range(1, 13)})
+    pivot = pd.merge(all_months, pivot, on='Mês', how='left')
+    
+    if 2025 not in pivot.columns: pivot[2025] = np.nan
+    if 2026 not in pivot.columns: pivot[2026] = np.nan
+    
+    pivot['Mês / Referência'] = pivot['Mês'].map(lambda x: meses_list_abrev[x-1])
+    return pivot.rename(columns={2025: 'Realizado 2025', 2026: 'Realizado 2026'})
 
 
 # ==========================================
@@ -173,27 +192,33 @@ elif paginas[selecao_pagina] == "entradas":
 # ==========================================
 elif paginas[selecao_pagina] == "socios":
     st.title("Gestão de Sócios")
-    st.subheader(f"Retiradas Mensais — Consolidação de Todos os Sócios ({mes_selecionado_str.upper()})")
+    st.subheader(f"Retiradas Mensais — Consolidação e Detalhamento por Sócio ({mes_selecionado_str.upper()})")
     st.markdown("---")
     
     # Exibe os indicadores mestre no topo
     exibir_painel_cards_globais()
     
-    def construir_tabela_comparativa(grupo_nome):
-        df_grupo = df_raw[df_raw['Grupo'] == grupo_nome]
-        pivot = df_grupo.pivot_table(index='Mês', columns='Ano', values='Valor', aggfunc='sum').reset_index()
+    # Visão 1: Distribuição Real por Contato/Sócio no mês ativo
+    st.markdown(f"#### 🔍 Distribuição de Desembolsos por Sócio/Contato em {mes_selecionado_str}")
+    df_mes_socios_breakdown = df_raw[(df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS') & (df_raw['Ano'] == ano_atual) & (df_raw['Mês'] == mes_atual)]
+    
+    if not df_mes_socios_breakdown.empty:
+        df_bdown = df_mes_socios_breakdown.groupby('Contato')['Valor'].sum().reset_index().sort_values(by='Valor', ascending=False)
+        df_bdown['Participação %'] = (df_bdown['Valor'] / df_bdown['Valor'].sum() * 100)
+        df_bdown['Valor'] = df_bdown['Valor'].apply(lambda x: formatar_brl(x))
+        df_bdown['Participação %'] = df_bdown['Participação %'].apply(lambda x: f"{x:.1f}%".replace('.', ','))
+        st.dataframe(df_bdown, use_container_width=True, hide_index=True)
+    else:
+        st.info("Nenhum lançamento de despesa de sócios encontrado para o mês selecionado.")
         
-        all_months = pd.DataFrame({'Mês': range(1, 13)})
-        pivot = pd.merge(all_months, pivot, on='Mês', how='left')
-        
-        if 2025 not in pivot.columns: pivot[2025] = np.nan
-        if 2026 not in pivot.columns: pivot[2026] = np.nan
-        
-        pivot['Mês / Referência'] = pivot['Mês'].map(lambda x: meses_list_abrev[x-1])
-        return pivot.rename(columns={2025: 'Realizado 2025', 2026: 'Realizado 2026'})
-
-    st.markdown("#### 📊 Painel de Retiradas dos Sócios")
-    df_socios = construir_tabela_comparativa('DESPESAS DOS SÓCIOS')
+    st.markdown("---")
+    
+    # Visão 2: Filtro Individual para Gráficos e Histórico Comparativo
+    st.markdown("#### 👥 Filtro de Análise Individualizada")
+    lista_socios = sorted(list(df_raw[df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS']['Contato'].dropna().unique()))
+    socio_selecionado = st.selectbox("Selecione um Sócio específico para recalcular o histórico e gráficos abaixo:", ["Todos os Sócios (Geral)"] + lista_socios)
+    
+    df_socios = construir_tabela_comparativa('DESPESAS DOS SÓCIOS', contato_filtro=socio_selecionado)
     
     col_graf1, col_graf2 = st.columns([2, 1])
     
@@ -201,12 +226,16 @@ elif paginas[selecao_pagina] == "socios":
         fig_bar = go.Figure()
         fig_bar.add_trace(go.Bar(x=df_socios['Mês / Referência'], y=df_socios['Realizado 2025'], name='2025', marker_color='#9fb1c2'))
         fig_bar.add_trace(go.Bar(x=df_socios['Mês / Referência'], y=df_socios['Realizado 2026'], name='2026', marker_color='#005a60'))
-        fig_bar.update_layout(title="Comparativo Mensal de Retiradas", barmode='group', height=350, margin=dict(l=20, r=20, t=40, b=20))
+        fig_bar.update_layout(title=f"Comparativo Mensal de Retiradas — {socio_selecionado}", barmode='group', height=350, margin=dict(l=20, r=20, t=40, b=20))
         st.plotly_chart(fig_bar, use_container_width=True)
         
     with col_graf2:
-        ytd_socios_2025 = df_raw[(df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS') & (df_raw['Ano'] == 2025) & (df_raw['Mês'] <= mes_atual)]['Valor'].sum()
-        ytd_socios_2026 = df_raw[(df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS') & (df_raw['Ano'] == 2026) & (df_raw['Mês'] <= mes_atual)]['Valor'].sum()
+        df_socios_filtrado = df_raw[df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS']
+        if socio_selecionado != "Todos os Sócios (Geral)":
+            df_socios_filtrado = df_socios_filtrado[df_socios_filtrado['Contato'] == socio_selecionado]
+            
+        ytd_socios_2025 = df_socios_filtrado[(df_socios_filtrado['Ano'] == 2025) & (df_socios_filtrado['Mês'] <= mes_atual)]['Valor'].sum()
+        ytd_socios_2026 = df_socios_filtrado[(df_socios_filtrado['Ano'] == 2026) & (df_socios_filtrado['Mês'] <= mes_atual)]['Valor'].sum()
         
         fig_pie = go.Figure(data=[go.Pie(
             labels=['Acumulado 2025', 'Acumulado 2026'], 
@@ -220,7 +249,7 @@ elif paginas[selecao_pagina] == "socios":
         st.plotly_chart(fig_pie, use_container_width=True)
         
     st.markdown("---")
-    st.markdown("#### 📋 Tabela Comparativa de Retiradas")
+    st.markdown(f"#### 📋 Tabela Comparativa Corrente — {socio_selecionado}")
     
     df_socios['Diferença Absoluta'] = df_socios['Realizado 2026'] - df_socios['Realizado 2025']
     df_socios['Variação %'] = (df_socios['Diferença Absoluta'] / df_socios['Realizado 2025']) * 100

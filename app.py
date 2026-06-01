@@ -30,6 +30,16 @@ def formatar_pct(valor):
         return "-"
     return f"{valor:+.1f}%".replace(".", ",")
 
+# Função para resumir os rótulos dos gráficos (ex: 15K, 1,2M)
+def resumir_valor_grafico(v):
+    if pd.isna(v) or v == 0:
+        return ""
+    if abs(v) >= 1_000_000:
+        return f"{v/1_000_000:.1f}M".replace('.', ',')
+    if abs(v) >= 1_000:
+        return f"{v/1_000:.0f}K"
+    return f"{v:.0f}"
+
 # 3. CARREGAMENTO E RENOMEAÇÃO ROBUSTA DE COLUNAS DUPLICADAS
 @st.cache_data
 def carregar_dados():
@@ -204,16 +214,39 @@ elif paginas[selecao_pagina] == "socios":
     socio_selecionado = st.selectbox("Escolha uma opção para recalcular a página:", ["Todos os Sócios (Geral)"] + lista_socios)
     st.markdown("---")
     
-    # 1. GRÁFICOS COMPARATIVOS (POSICIONADOS LOGO ABAIXO DO FILTRO)
+    # 1. GRÁFICOS COMPARATIVOS (COM RÓTULOS RESUMIDOS EM "K")
     df_socios = construir_tabela_comparativa('DESPESAS DOS SÓCIOS', contato_filtro=socio_selecionado)
+    
+    # Geração dos rótulos em formato de texto simplificado (ex: 15K)
+    labels_2025 = df_socios['Realizado 2025'].apply(resumir_valor_grafico)
+    labels_2026 = df_socios['Realizado 2026'].apply(resumir_valor_grafico)
     
     col_graf1, col_graf2 = st.columns([2, 1])
     
     with col_graf1:
         fig_bar = go.Figure()
-        fig_bar.add_trace(go.Bar(x=df_socios['Mês / Referência'], y=df_socios['Realizado 2025'], name='2025', marker_color='#9fb1c2'))
-        fig_bar.add_trace(go.Bar(x=df_socios['Mês / Referência'], y=df_socios['Realizado 2026'], name='2026', marker_color='#005a60'))
-        fig_bar.update_layout(title=f"Comparativo Mensal de Retiradas — {socio_selecionado}", barmode='group', height=350, margin=dict(l=20, r=20, t=40, b=20))
+        fig_bar.add_trace(go.Bar(
+            x=df_socios['Mês / Referência'], 
+            y=df_socios['Realizado 2025'], 
+            name='2025', 
+            marker_color='#9fb1c2',
+            text=labels_2025,
+            textposition='outside'
+        ))
+        fig_bar.add_trace(go.Bar(
+            x=df_socios['Mês / Referência'], 
+            y=df_socios['Realizado 2026'], 
+            name='2026', 
+            marker_color='#005a60',
+            text=labels_2026,
+            textposition='outside'
+        ))
+        fig_bar.update_layout(
+            title=f"Comparativo Mensal de Retiradas — {socio_selecionado}", 
+            barmode='group', 
+            height=370, 
+            margin=dict(l=20, r=20, t=40, b=20)
+        )
         st.plotly_chart(fig_bar, use_container_width=True)
         
     with col_graf2:
@@ -232,46 +265,12 @@ elif paginas[selecao_pagina] == "socios":
             textinfo='percent+value',
             textposition='inside'
         )])
-        fig_pie.update_layout(title=f"Acumulado Retiradas (Até {meses_list_abrev[mes_atual-1]})", height=350, margin=dict(l=20, r=20, t=40, b=20))
+        fig_pie.update_layout(title=f"Acumulado Retiradas (Até {meses_list_abrev[mes_atual-1]})", height=370, margin=dict(l=20, r=20, t=40, b=20))
         st.plotly_chart(fig_pie, use_container_width=True)
         
     st.markdown("---")
     
-    # 2. TABELA DE DETALHAMENTO DO MÊS (DEPOIS DOS GRÁFICOS E ANTES DO COMPARATIVO HISTÓRICO)
-    st.markdown(f"#### 📋 Detalhamento de Gastos do Mês ({mes_selecionado_str}) — {socio_selecionado}")
-    
-    df_detalhe_mes = df_raw[
-        (df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS') & 
-        (df_raw['Ano'] == ano_atual) & 
-        (df_raw['Mês'] == mes_atual)
-    ].copy()
-    
-    # Aplica o filtro se não for Geral
-    if socio_selecionado != "Todos os Sócios (Geral)":
-        df_detalhe_mes = df_detalhe_mes[df_detalhe_mes['Contato'] == socio_selecionado]
-        
-    if not df_detalhe_mes.empty:
-        # Colunas requeridas pelo usuário: Data de pagamento, Contato, Valor e Descrição
-        colunas_pedidas = ['Data de pagamento', 'Contato', 'Valor', 'Descrição']
-        colunas_disponiveis = [col for col in colunas_pedidas if col in df_detalhe_mes.columns]
-        
-        df_detalhe_show = df_detalhe_mes[colunas_disponiveis].copy()
-        
-        # Tratamento e formatação de datas
-        if 'Data de pagamento' in df_detalhe_show.columns:
-            df_detalhe_show['Data de pagamento'] = pd.to_datetime(df_detalhe_show['Data de pagamento']).dt.strftime('%d/%m/%Y')
-            df_detalhe_show = df_detalhe_show.sort_values(by='Data de pagamento')
-            
-        # Formatação financeira do valor
-        df_detalhe_show['Valor'] = df_detalhe_show['Valor'].apply(lambda x: formatar_brl(x))
-        
-        st.dataframe(df_detalhe_show, use_container_width=True, hide_index=True)
-    else:
-        st.info(f"Nenhum lançamento de gasto detalhado encontrado para '{socio_selecionado}' em {mes_selecionado_str}.")
-        
-    st.markdown("---")
-    
-    # Se for Geral, exibe também o resumo de participação agrupado por contato
+    # 2. TABELA RESUMO DE PARTICIPAÇÃO POR SÓCIO NO MÊS (EXIBIDA APÓS OS GRÁFICOS - SE FOR GERAL)
     if socio_selecionado == "Todos os Sócios (Geral)":
         st.markdown(f"#### 📊 Resumo de Participação por Sócio no Mês ({mes_selecionado_str})")
         df_mes_socios_breakdown = df_raw[(df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS') & (df_raw['Ano'] == ano_atual) & (df_raw['Mês'] == mes_atual)]
@@ -282,9 +281,40 @@ elif paginas[selecao_pagina] == "socios":
             df_bdown['Valor'] = df_bdown['Valor'].apply(lambda x: formatar_brl(x))
             df_bdown['Participação %'] = df_bdown['Participação %'].apply(lambda x: f"{x:.1f}%".replace('.', ','))
             st.dataframe(df_bdown, use_container_width=True, hide_index=True)
-            st.markdown("---")
+        else:
+            st.info(f"Nenhum lançamento encontrado para gerar o resumo de participação em {mes_selecionado_str}.")
+        st.markdown("---")
     
-    # 3. TABELA COMPARATIVA HISTÓRICA ANO X ANO (AO FINAL DA PÁGINA)
+    # 3. TABELA DETALHADA DO MÊS
+    st.markdown(f"#### 📋 Detalhamento de Gastos do Mês ({mes_selecionado_str}) — {socio_selecionado}")
+    
+    df_detalhe_mes = df_raw[
+        (df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS') & 
+        (df_raw['Ano'] == ano_atual) & 
+        (df_raw['Mês'] == mes_atual)
+    ].copy()
+    
+    if socio_selecionado != "Todos os Sócios (Geral)":
+        df_detalhe_mes = df_detalhe_mes[df_detalhe_mes['Contato'] == socio_selecionado]
+        
+    if not df_detalhe_mes.empty:
+        colunas_pedidas = ['Data de pagamento', 'Contato', 'Valor', 'Descrição']
+        colunas_disponiveis = [col for col in colunas_pedidas if col in df_detalhe_mes.columns]
+        
+        df_detalhe_show = df_detalhe_mes[colunas_disponiveis].copy()
+        
+        if 'Data de pagamento' in df_detalhe_show.columns:
+            df_detalhe_show['Data de pagamento'] = pd.to_datetime(df_detalhe_show['Data de pagamento']).dt.strftime('%d/%m/%Y')
+            df_detalhe_show = df_detalhe_show.sort_values(by='Data de pagamento')
+            
+        df_detalhe_show['Valor'] = df_detalhe_show['Valor'].apply(lambda x: formatar_brl(x))
+        st.dataframe(df_detalhe_show, use_container_width=True, hide_index=True)
+    else:
+        st.info(f"Nenhum lançamento de gasto detalhado encontrado para '{socio_selecionado}' em {mes_selecionado_str}.")
+        
+    st.markdown("---")
+    
+    # 4. TABELA COMPARATIVA HISTÓRICA ANO X ANO (POR ÚLTIMO)
     st.markdown(f"#### 📋 Tabela Comparativa Histórica — {socio_selecionado}")
     
     df_socios['Diferença Absoluta'] = df_socios['Realizado 2026'] - df_socios['Realizado 2025']

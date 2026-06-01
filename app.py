@@ -111,6 +111,23 @@ saidas_ytd = df_ytd_saidas['Valor'].sum()
 resultado_ytd = entradas_ytd - saidas_ytd
 margem_ytd = (resultado_ytd / entradas_ytd * 100) if entradas_ytd > 0 else 0
 
+# 7. FUNÇÃO GLOBAL PARA EXIBIÇÃO DOS CARDS FINANCEIROS (MENSAL E YTD)
+def exibir_painel_cards_globais():
+    st.markdown(f"#### 📅 Resumo Operacional do Mês ({mes_selecionado_str})")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("💰 Entradas (Vendas)", formatar_brl(entradas_mes))
+    c2.metric("💸 Saídas Operacionais", formatar_brl(saidas_mes))
+    delta_mes_str = f"{margem_mes:+.1f}% Margem".replace('.', ',')
+    c3.metric("📊 Resultado Líquido", formatar_brl(resultado_mes), delta=delta_mes_str)
+    
+    st.markdown("#### 🗂️ Resumo Acumulado do Ano (YTD)")
+    cc1, cc2, cc3 = st.columns(3)
+    cc1.metric("📈 Entradas Acumuladas", formatar_brl(entradas_ytd))
+    cc2.metric("📉 Saídas Acumuladas", formatar_brl(saidas_ytd))
+    delta_ytd_str = f"{margem_ytd:+.1f}% Margem".replace('.', ',')
+    cc3.metric("⚖️ Resultado Líquido YTD", formatar_brl(resultado_ytd), delta=delta_ytd_str)
+    st.markdown("---")
+
 
 # ==========================================
 # TELA 1: VISÃO GERAL
@@ -120,22 +137,8 @@ if paginas[selecao_pagina] == "visao_geral":
     st.subheader(f"Acumulado Estratégico (YTD) até {mes_selecionado_str.upper()}")
     st.markdown("---")
     
-    st.markdown(f"#### Resumo do Mês ({mes_selecionado_str})")
-    c1, c2, c3 = st.columns(3)
-    c1.metric("💰 Entradas (Vendas)", formatar_brl(entradas_mes))
-    c2.metric("💸 Saídas operacionais", formatar_brl(saidas_mes))
-    
-    delta_mes_str = f"{margem_mes:+.1f}% Margem".replace('.', ',')
-    c3.metric("📊 Resultado Líquido", formatar_brl(resultado_mes), delta=delta_mes_str)
-    
-    st.markdown("---")
-    st.markdown("#### Resumo Acumulado do Ano (YTD)")
-    cc1, cc2, cc3 = st.columns(3)
-    cc1.metric("📈 Entradas Acumuladas (Vendas)", formatar_brl(entradas_ytd))
-    cc2.metric("📉 Saídas Acumuladas", formatar_brl(saidas_ytd))
-    
-    delta_ytd_str = f"{margem_ytd:+.1f}% Margem".replace('.', ',')
-    cc3.metric("⚖️ Resultado Líquido YTD", formatar_brl(resultado_ytd), delta=delta_ytd_str)
+    # Exibe os indicadores mestre
+    exibir_painel_cards_globais()
 
 
 # ==========================================
@@ -143,9 +146,13 @@ if paginas[selecao_pagina] == "visao_geral":
 # ==========================================
 elif paginas[selecao_pagina] == "entradas":
     st.title("📈 Análise de Entradas (Foco em Vendas)")
-    st.subheader(f"Lançamentos classificados como VENDA — Referência {mes_selecionado_str.upper()}")
+    st.subheader(f"Detalhamento de Recebimentos — Referência {mes_selecionado_str.upper()}")
     st.markdown("---")
     
+    # Exibe os indicadores mestre no topo
+    exibir_painel_cards_globais()
+    
+    st.markdown("#### 🔍 Listagem Analítica de Vendas do Mês")
     colunas_foco = ['Data de pagamento', 'Contato', 'Descrição', 'Categoria', 'Situação', 'Valor', 'Instituição']
     colunas_existentes = [c for c in colunas_foco if c in df_mes_entradas.columns]
     
@@ -169,6 +176,9 @@ elif paginas[selecao_pagina] == "socios":
     st.subheader(f"Retiradas Mensais — Consolidação de Todos os Sócios ({mes_selecionado_str.upper()})")
     st.markdown("---")
     
+    # Exibe os indicadores mestre no topo
+    exibir_painel_cards_globais()
+    
     def construir_tabela_comparativa(grupo_nome):
         df_grupo = df_raw[df_raw['Grupo'] == grupo_nome]
         pivot = df_grupo.pivot_table(index='Mês', columns='Ano', values='Valor', aggfunc='sum').reset_index()
@@ -182,6 +192,7 @@ elif paginas[selecao_pagina] == "socios":
         pivot['Mês / Referência'] = pivot['Mês'].map(lambda x: meses_list_abrev[x-1])
         return pivot.rename(columns={2025: 'Realizado 2025', 2026: 'Realizado 2026'})
 
+    st.markdown("#### 📊 Painel de Retiradas dos Sócios")
     df_socios = construir_tabela_comparativa('DESPESAS DOS SÓCIOS')
     
     col_graf1, col_graf2 = st.columns([2, 1])
@@ -209,7 +220,7 @@ elif paginas[selecao_pagina] == "socios":
         st.plotly_chart(fig_pie, use_container_width=True)
         
     st.markdown("---")
-    st.markdown("#### Tabela Comparativa de Retiradas")
+    st.markdown("#### 📋 Tabela Comparativa de Retiradas")
     
     df_socios['Diferença Absoluta'] = df_socios['Realizado 2026'] - df_socios['Realizado 2025']
     df_socios['Variação %'] = (df_socios['Diferença Absoluta'] / df_socios['Realizado 2025']) * 100
@@ -231,15 +242,10 @@ elif paginas[selecao_pagina] == "custos":
     st.subheader(f"Acompanhamento Analítico em {mes_selecionado_str.upper()}")
     st.markdown("---")
     
-    c1, c2, c3 = st.columns(3)
-    c1.metric("💰 Entradas (Vendas) no Mês", formatar_brl(entradas_mes))
-    c2.metric("💸 Saídas no Mês", formatar_brl(saidas_mes))
-    delta_c_str = f"{margem_mes:+.1f}% Margem".replace('.', ',')
-    c3.metric("📊 Resultado do Mês", formatar_brl(resultado_mes), delta=delta_c_str)
+    # Exibe os indicadores mestre no topo
+    exibir_painel_cards_globais()
         
-    st.markdown("---")
-    st.markdown("#### Custos na Prestação de Serviço — Mensalidades")
-    
+    st.markdown("#### 🛠️ Custos na Prestação de Serviço — Mensalidades")
     df_custos = construir_tabela_comparativa('CUSTOS NA PRESTAÇÃO DE SERVIÇO')
     
     col_g1, col_g2 = st.columns([2, 1])
@@ -267,7 +273,7 @@ elif paginas[selecao_pagina] == "custos":
         st.plotly_chart(fig_pie_c, use_container_width=True)
         
     st.markdown("---")
-    st.markdown("#### Tabela de Evolução Analítica")
+    st.markdown("#### 📋 Tabela de Evolução Analítica")
     
     df_custos['Diferença Absoluta'] = df_custos['Realizado 2026'] - df_custos['Realizado 2025']
     df_custos['Variação %'] = (df_custos['Diferença Absoluta'] / df_custos['Realizado 2025']) * 100

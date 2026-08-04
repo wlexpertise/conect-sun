@@ -161,10 +161,21 @@ def exibir_painel_cards_globais(compacto=False):
         cor_y = "#155724" if resultado_ytd >= 0 else "#721c24"
         st.markdown(
             f"""
-            <div style="background-color: #f8f9fa; padding: 10px 15px; border-radius: 6px; border-left: 4px solid #005a60; margin-bottom: 20px; font-size: 0.88rem; line-height: 1.4;">
-                <b>📅 MÊS ({mes_selecionado_str.upper()}):</b> Entradas: {formatar_brl(entradas_mes)} | Saídas: {formatar_brl(saidas_mes)} | Líquido: <b>{formatar_brl(resultado_mes)}</b> <span style="color:{cor_m}; font-weight:bold;">({margem_mes:+.1f}%)</span>
-                <br>
-                <b>🗂️ ACUMULADO (YTD):</b> Entradas: {formatar_brl(entradas_ytd)} | Saídas: {formatar_brl(saidas_ytd)} | Líquido: <b>{formatar_brl(resultado_ytd)}</b> <span style="color:{cor_y}; font-weight:bold;">({margem_ytd:+.1f}%)</span>
+            <div style="background-color: #f8f9fa; color: #1e293b; padding: 14px 18px; border-radius: 8px; border-left: 5px solid #005a60; margin-bottom: 22px; font-size: 0.92rem; line-height: 1.6; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">
+                <div style="margin-bottom: 6px;">
+                    <b>📅 MÊS ({mes_selecionado_str.upper()}):</b> 
+                    Entradas: <span style="font-weight:600; color:#0f172a;">{formatar_brl(entradas_mes)}</span> | 
+                    Saídas: <span style="font-weight:600; color:#0f172a;">{formatar_brl(saidas_mes)}</span> | 
+                    Líquido: <b style="color:#000000;">{formatar_brl(resultado_mes)}</b> 
+                    <span style="color:{cor_m}; font-weight:bold;">({margem_mes:+.1f}%)</span>
+                </div>
+                <div>
+                    <b>🗂️ ACUMULADO (YTD):</b> 
+                    Entradas: <span style="font-weight:600; color:#0f172a;">{formatar_brl(entradas_ytd)}</span> | 
+                    Saídas: <span style="font-weight:600; color:#0f172a;">{formatar_brl(saidas_ytd)}</span> | 
+                    Líquido: <b style="color:#000000;">{formatar_brl(resultado_ytd)}</b> 
+                    <span style="color:{cor_y}; font-weight:bold;">({margem_ytd:+.1f}%)</span>
+                </div>
             </div>
             """,
             unsafe_allow_html=True
@@ -453,7 +464,6 @@ elif paginas[selecao_pagina] == "socios":
         st.markdown("---")
     
     st.markdown(f"#### 📋 Detalhamento de Gastos do Mês ({mes_selecionado_str}) — {socio_selecionado}")
-    # FIX: Correção de digitacao de DESPADAS para DESPESAS abaixo
     df_detalhe_mes = df_raw[(df_raw['Grupo'] == 'DESPESAS DOS SÓCIOS') & (df_raw['Ano'] == ano_atual) & (df_raw['Mês'] == mes_atual)].copy()
     
     if socio_selecionado != "Todos os Sócios (Geral)":

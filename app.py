@@ -39,36 +39,16 @@ def resumir_valor_grafico(v):
         return f"{v/1_000:.0f}K"
     return f"{v:.0f}"
 
-def formatar_datas_tabela(df, col_nome='Data de pagamento'):
-    """Trata datas com segurança contra falhas de parse e formatos mistos."""
-    if col_nome in df.columns:
-        datas_convertidas = pd.to_datetime(df[col_nome], errors='coerce', dayfirst=True)
-        df[col_nome] = datas_convertidas.dt.strftime('%d/%m/%Y').fillna('-')
-    return df
-
-# 3. CARREGAMENTO E RENOMEAÇÃO ROBUSTA DE COLUNAS (COM TOLERÂNCIA A ERROS DE DIGITAÇÃO)
+# 3. CARREGAMENTO E RENOMEAÇÃO ROBUSTA DE COLUNAS DUPLICADAS
 @st.cache_data
 def carregar_dados():
     df = pd.read_excel("dados_conectsol.xlsx", sheet_name="DADOS")
-    
-    # Remove espaços em branco dos nomes das colunas originais
-    df.columns = [str(c).strip() for c in df.columns]
-    
-    # Mapeia colunas de Ano e Mês independentemente de maiúsculas/minúsculas ou acentos
-    col_mapping = {}
-    for col in df.columns:
-        col_lower = col.lower()
-        if col_lower in ['ano', 'year']:
-            col_mapping[col] = 'Ano'
-        elif col_lower in ['mês', 'mes', 'month']:
-            col_mapping[col] = 'Mês'
-    df = df.rename(columns=col_mapping)
     
     # Tratamento seguro para colunas com nomes idênticos ("Tipo")
     novas_colunas = []
     contador_tipo = 0
     for col in df.columns:
-        if str(col).lower().startswith('tipo'):
+        if str(col).startswith('Tipo'):
             if contador_tipo == 0:
                 novas_colunas.append('Tipo_Movimentacao') # Coluna de Entrada / Saída
                 contador_tipo += 1
@@ -78,10 +58,6 @@ def carregar_dados():
             novas_colunas.append(col)
     df.columns = novas_colunas
     
-    if 'Ano' not in df.columns or 'Mês' not in df.columns:
-        st.error(f"⚠️ A planilha precisa conter colunas para 'Ano' e 'Mês'. Colunas encontradas: {list(df.columns)}")
-        st.stop()
-        
     df = df.dropna(subset=['Ano', 'Mês'])
     df['Mês'] = df['Mês'].astype(int)
     df['Ano'] = df['Ano'].astype(int)
@@ -333,7 +309,8 @@ elif paginas[selecao_pagina] == "entradas":
     df_exibicao = df_mes_entradas[colunas_existentes].copy()
     
     if not df_exibicao.empty:
-        df_exibicao = formatar_datas_tabela(df_exibicao, 'Data de pagamento')
+        if 'Data de pagamento' in df_exibicao.columns:
+            df_exibicao['Data de pagamento'] = pd.to_datetime(df_exibicao['Data de pagamento']).dt.strftime('%d/%m/%Y')
         df_exibicao['Valor'] = df_exibicao['Valor'].apply(lambda x: formatar_brl(x))
         st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
     else:
@@ -404,7 +381,8 @@ elif paginas[selecao_pagina] == "saidas":
     df_exibicao_saidas = df_mes_saidas[colunas_existentes].copy()
     
     if not df_exibicao_saidas.empty:
-        df_exibicao_saidas = formatar_datas_tabela(df_exibicao_saidas, 'Data de pagamento')
+        if 'Data de pagamento' in df_exibicao_saidas.columns:
+            df_exibicao_saidas['Data de pagamento'] = pd.to_datetime(df_exibicao_saidas['Data de pagamento']).dt.strftime('%d/%m/%Y')
         df_exibicao_saidas['Valor'] = df_exibicao_saidas['Valor'].apply(lambda x: formatar_brl(x))
         st.dataframe(df_exibicao_saidas, use_container_width=True, hide_index=True)
     else:
@@ -496,7 +474,10 @@ elif paginas[selecao_pagina] == "socios":
         colunas_disponiveis = [col for col in colunas_pedidas if col in df_detalhe_mes.columns]
         df_detalhe_show = df_detalhe_mes[colunas_disponiveis].copy()
         
-        df_detalhe_show = formatar_datas_tabela(df_detalhe_show, 'Data de pagamento')
+        if 'Data de pagamento' in df_detalhe_show.columns:
+            df_detalhe_show['Data de pagamento'] = pd.to_datetime(df_detalhe_show['Data de pagamento']).dt.strftime('%d/%m/%Y')
+            df_detalhe_show = df_detalhe_show.sort_values(by='Data de pagamento')
+            
         df_detalhe_show['Valor'] = df_detalhe_show['Valor'].apply(lambda x: formatar_brl(x))
         st.dataframe(df_detalhe_show, use_container_width=True, hide_index=True)
     else:
@@ -573,7 +554,8 @@ elif paginas[selecao_pagina] == "custos":
     df_detalhe_custos = df_mes_custos[colunas_disponiveis_c].copy()
     
     if not df_detalhe_custos.empty:
-        df_detalhe_custos = formatar_datas_tabela(df_detalhe_custos, 'Data de pagamento')
+        if 'Data de pagamento' in df_detalhe_custos.columns:
+            df_detalhe_custos['Data de pagamento'] = pd.to_datetime(df_detalhe_custos['Data de pagamento']).dt.strftime('%d/%m/%Y')
         df_detalhe_custos['Valor'] = df_detalhe_custos['Valor'].apply(lambda x: formatar_brl(x))
         st.dataframe(df_detalhe_custos, use_container_width=True, hide_index=True)
     else:

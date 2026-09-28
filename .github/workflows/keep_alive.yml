@@ -1,0 +1,15 @@
+name: Manter Streamlit Ativo
+
+on:
+  schedule:
+    # Executa automaticamente todos os dias às 06:00 (horário de Brasília)
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Acessar Streamlit
+        run: |
+          curl -s https://wlexpertise-conectsol.streamlit.app/ > /dev/null
